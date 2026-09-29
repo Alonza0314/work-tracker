@@ -23,8 +23,33 @@ import type { RequestArgs } from './base';
 // @ts-ignore
 import { BASE_PATH, COLLECTION_FORMATS, BaseAPI, RequiredError, operationServerMap } from './base';
 
+export interface ChangeMyPasswordRequest {
+    'oldPassword': string;
+    'newPassword': string;
+}
+export interface CreateUserRequest {
+    'account': string;
+    'name': string;
+    'role': Role;
+    'i18n': I18n;
+}
+
+
+
+export const I18n = {
+    ZhTw: 'zh-TW',
+    En: 'en',
+} as const;
+
+export type I18n = typeof I18n[keyof typeof I18n];
+
+
+export interface ListUsersResponse {
+    'message': string;
+    'users': Array<User>;
+}
 export interface LoginRequest {
-    'username': string;
+    'account': string;
     'password': string;
 }
 export interface LoginResponse {
@@ -35,13 +60,239 @@ export interface MessageResponse {
     'message'?: string;
 }
 
+export const Role = {
+    Admin: 'admin',
+    Default: 'default',
+} as const;
+
+export type Role = typeof Role[keyof typeof Role];
+
+
+export interface TokenResponse {
+    'message': string;
+    'token': string;
+}
+export interface UpdateMeRequest {
+    'i18n': I18n;
+}
+
+
+export interface UpdateUserRequest {
+    'name'?: string;
+    'password'?: string;
+    'role'?: Role;
+    'i18n'?: I18n;
+}
+
+
+export interface User {
+    'account': string;
+    'name': string;
+    'role': Role;
+    'i18n': I18n;
+    /**
+     * True for the admin defined in the backend config file.
+     */
+    'isSystem': boolean;
+}
+
+
+export interface UserResponse {
+    'message': string;
+    'user': User;
+}
+
 /**
  * DefaultApi - axios parameter creator
  */
 export const DefaultApiAxiosParamCreator = function (configuration?: Configuration) {
     return {
         /**
+         * Not allowed for the system (config) admin.
+         * @summary Change the logged-in user\'s password
+         * @param {ChangeMyPasswordRequest} changeMyPasswordRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        changeMyPassword: async (changeMyPasswordRequest: ChangeMyPasswordRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'changeMyPasswordRequest' is not null or undefined
+            assertParamExists('changeMyPassword', 'changeMyPasswordRequest', changeMyPasswordRequest)
+            const localVarPath = `/api/me/password`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'PUT', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(changeMyPasswordRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * The new user\'s initial password is its account.
+         * @summary Create a user (admin)
+         * @param {CreateUserRequest} createUserRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        createUser: async (createUserRequest: CreateUserRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'createUserRequest' is not null or undefined
+            assertParamExists('createUser', 'createUserRequest', createUserRequest)
+            const localVarPath = `/api/users`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(createUserRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * The system admin and the caller themself cannot be deleted.
+         * @summary Delete a user (admin)
+         * @param {string} account 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        deleteUser: async (account: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'account' is not null or undefined
+            assertParamExists('deleteUser', 'account', account)
+            const localVarPath = `/api/users/{account}`
+                .replace('{account}', encodeURIComponent(String(account)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'DELETE', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
          * 
+         * @summary Get the logged-in user
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getMe: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/me`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary List users (admin)
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        listUsers: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/users`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * The returned JWT carries `sub` (account), `name`, `role` and `i18n` claims.
          * @summary Login
          * @param {LoginRequest} loginRequest 
          * @param {*} [options] Override http request option.
@@ -104,6 +355,88 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
                 options: localVarRequestOptions,
             };
         },
+        /**
+         * Returns a new JWT carrying the updated `i18n` claim.
+         * @summary Update the logged-in user\'s preferences
+         * @param {UpdateMeRequest} updateMeRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        updateMe: async (updateMeRequest: UpdateMeRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'updateMeRequest' is not null or undefined
+            assertParamExists('updateMe', 'updateMeRequest', updateMeRequest)
+            const localVarPath = `/api/me`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'PUT', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(updateMeRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Only the given fields are changed. The system admin cannot be updated.
+         * @summary Update a user (admin)
+         * @param {string} account 
+         * @param {UpdateUserRequest} updateUserRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        updateUser: async (account: string, updateUserRequest: UpdateUserRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'account' is not null or undefined
+            assertParamExists('updateUser', 'account', account)
+            // verify required parameter 'updateUserRequest' is not null or undefined
+            assertParamExists('updateUser', 'updateUserRequest', updateUserRequest)
+            const localVarPath = `/api/users/{account}`
+                .replace('{account}', encodeURIComponent(String(account)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'PUT', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(updateUserRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
     }
 };
 
@@ -114,7 +447,70 @@ export const DefaultApiFp = function(configuration?: Configuration) {
     const localVarAxiosParamCreator = DefaultApiAxiosParamCreator(configuration)
     return {
         /**
+         * Not allowed for the system (config) admin.
+         * @summary Change the logged-in user\'s password
+         * @param {ChangeMyPasswordRequest} changeMyPasswordRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async changeMyPassword(changeMyPasswordRequest: ChangeMyPasswordRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<MessageResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.changeMyPassword(changeMyPasswordRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.changeMyPassword']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * The new user\'s initial password is its account.
+         * @summary Create a user (admin)
+         * @param {CreateUserRequest} createUserRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async createUser(createUserRequest: CreateUserRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<UserResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.createUser(createUserRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.createUser']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * The system admin and the caller themself cannot be deleted.
+         * @summary Delete a user (admin)
+         * @param {string} account 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async deleteUser(account: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<MessageResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.deleteUser(account, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.deleteUser']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
          * 
+         * @summary Get the logged-in user
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async getMe(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<UserResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.getMe(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.getMe']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary List users (admin)
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async listUsers(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ListUsersResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.listUsers(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.listUsers']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * The returned JWT carries `sub` (account), `name`, `role` and `i18n` claims.
          * @summary Login
          * @param {LoginRequest} loginRequest 
          * @param {*} [options] Override http request option.
@@ -138,6 +534,33 @@ export const DefaultApiFp = function(configuration?: Configuration) {
             const localVarOperationServerBasePath = operationServerMap['DefaultApi.logout']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
+        /**
+         * Returns a new JWT carrying the updated `i18n` claim.
+         * @summary Update the logged-in user\'s preferences
+         * @param {UpdateMeRequest} updateMeRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async updateMe(updateMeRequest: UpdateMeRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<TokenResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.updateMe(updateMeRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.updateMe']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Only the given fields are changed. The system admin cannot be updated.
+         * @summary Update a user (admin)
+         * @param {string} account 
+         * @param {UpdateUserRequest} updateUserRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async updateUser(account: string, updateUserRequest: UpdateUserRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<UserResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.updateUser(account, updateUserRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.updateUser']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
     }
 };
 
@@ -148,7 +571,55 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
     const localVarFp = DefaultApiFp(configuration)
     return {
         /**
+         * Not allowed for the system (config) admin.
+         * @summary Change the logged-in user\'s password
+         * @param {ChangeMyPasswordRequest} changeMyPasswordRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        changeMyPassword(changeMyPasswordRequest: ChangeMyPasswordRequest, options?: RawAxiosRequestConfig): AxiosPromise<MessageResponse> {
+            return localVarFp.changeMyPassword(changeMyPasswordRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * The new user\'s initial password is its account.
+         * @summary Create a user (admin)
+         * @param {CreateUserRequest} createUserRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        createUser(createUserRequest: CreateUserRequest, options?: RawAxiosRequestConfig): AxiosPromise<UserResponse> {
+            return localVarFp.createUser(createUserRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * The system admin and the caller themself cannot be deleted.
+         * @summary Delete a user (admin)
+         * @param {string} account 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        deleteUser(account: string, options?: RawAxiosRequestConfig): AxiosPromise<MessageResponse> {
+            return localVarFp.deleteUser(account, options).then((request) => request(axios, basePath));
+        },
+        /**
          * 
+         * @summary Get the logged-in user
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getMe(options?: RawAxiosRequestConfig): AxiosPromise<UserResponse> {
+            return localVarFp.getMe(options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary List users (admin)
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        listUsers(options?: RawAxiosRequestConfig): AxiosPromise<ListUsersResponse> {
+            return localVarFp.listUsers(options).then((request) => request(axios, basePath));
+        },
+        /**
+         * The returned JWT carries `sub` (account), `name`, `role` and `i18n` claims.
          * @summary Login
          * @param {LoginRequest} loginRequest 
          * @param {*} [options] Override http request option.
@@ -166,6 +637,27 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
         logout(options?: RawAxiosRequestConfig): AxiosPromise<void> {
             return localVarFp.logout(options).then((request) => request(axios, basePath));
         },
+        /**
+         * Returns a new JWT carrying the updated `i18n` claim.
+         * @summary Update the logged-in user\'s preferences
+         * @param {UpdateMeRequest} updateMeRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        updateMe(updateMeRequest: UpdateMeRequest, options?: RawAxiosRequestConfig): AxiosPromise<TokenResponse> {
+            return localVarFp.updateMe(updateMeRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Only the given fields are changed. The system admin cannot be updated.
+         * @summary Update a user (admin)
+         * @param {string} account 
+         * @param {UpdateUserRequest} updateUserRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        updateUser(account: string, updateUserRequest: UpdateUserRequest, options?: RawAxiosRequestConfig): AxiosPromise<UserResponse> {
+            return localVarFp.updateUser(account, updateUserRequest, options).then((request) => request(axios, basePath));
+        },
     };
 };
 
@@ -174,7 +666,60 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
  */
 export class DefaultApi extends BaseAPI {
     /**
+     * Not allowed for the system (config) admin.
+     * @summary Change the logged-in user\'s password
+     * @param {ChangeMyPasswordRequest} changeMyPasswordRequest 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public changeMyPassword(changeMyPasswordRequest: ChangeMyPasswordRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).changeMyPassword(changeMyPasswordRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * The new user\'s initial password is its account.
+     * @summary Create a user (admin)
+     * @param {CreateUserRequest} createUserRequest 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public createUser(createUserRequest: CreateUserRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).createUser(createUserRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * The system admin and the caller themself cannot be deleted.
+     * @summary Delete a user (admin)
+     * @param {string} account 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public deleteUser(account: string, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).deleteUser(account, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
      * 
+     * @summary Get the logged-in user
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public getMe(options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).getMe(options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary List users (admin)
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public listUsers(options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).listUsers(options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * The returned JWT carries `sub` (account), `name`, `role` and `i18n` claims.
      * @summary Login
      * @param {LoginRequest} loginRequest 
      * @param {*} [options] Override http request option.
@@ -192,6 +737,29 @@ export class DefaultApi extends BaseAPI {
      */
     public logout(options?: RawAxiosRequestConfig) {
         return DefaultApiFp(this.configuration).logout(options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Returns a new JWT carrying the updated `i18n` claim.
+     * @summary Update the logged-in user\'s preferences
+     * @param {UpdateMeRequest} updateMeRequest 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public updateMe(updateMeRequest: UpdateMeRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).updateMe(updateMeRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Only the given fields are changed. The system admin cannot be updated.
+     * @summary Update a user (admin)
+     * @param {string} account 
+     * @param {UpdateUserRequest} updateUserRequest 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public updateUser(account: string, updateUserRequest: UpdateUserRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).updateUser(account, updateUserRequest, options).then((request) => request(this.axios, this.basePath));
     }
 }
 

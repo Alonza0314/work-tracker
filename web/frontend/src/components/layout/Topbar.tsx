@@ -6,9 +6,10 @@ import styles from './topbar.module.css'
 interface TopbarProps {
   title: string
   onMenuClick: () => void
+  onError: (message: string) => void
 }
 
-export default function Topbar({ title, onMenuClick }: TopbarProps) {
+export default function Topbar({ title, onMenuClick, onError }: TopbarProps) {
   const { t } = useI18n()
 
   return (
@@ -20,7 +21,7 @@ export default function Topbar({ title, onMenuClick }: TopbarProps) {
       <h1 className={styles.title}>{title}</h1>
 
       <div className={styles.actions}>
-        <LanguageSwitcher />
+        <LanguageSwitcher onError={onError} />
       </div>
     </header>
   )

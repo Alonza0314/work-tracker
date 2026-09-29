@@ -85,6 +85,12 @@ func NewBackend(config *config.Config, logger *logger.BackendLogger) *backend {
 		BackendLogger: logger,
 	}
 
+	if err := b.Processor.InitSystemAdmin(); err != nil {
+		logger.BckLog.Errorf("Failed to init system admin: %v", err)
+		b.Processor.Release()
+		return nil
+	}
+
 	gin.DefaultWriter, gin.DefaultErrorWriter = loggergo.NewGinWriter(logger.GinLog), loggergo.NewGinWriter(logger.GinLog)
 
 	b.router = util.NewGinRouter("", nil)
@@ -160,7 +166,13 @@ func addServices(router *gin.Engine, b *backend) {
 	authGroup := apiGroup.Group("")
 	authGroup.Use(addAuthMiddleware(b))
 
+	// routes that additionally need the admin role
+	adminGroup := authGroup.Group("")
+	adminGroup.Use(addAdminMiddleware())
+
 	addRoutes(apiGroup, b.getAccountRoutes())
+	addRoutes(authGroup, b.getMeRoutes())
+	addRoutes(adminGroup, b.getUserRoutes())
 }
 
 func addRoutes(group *gin.RouterGroup, routes util.Routes) {

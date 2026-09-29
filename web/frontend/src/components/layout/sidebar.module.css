@@ -121,6 +121,17 @@
   font-weight: 600;
 }
 
+.userMeta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.userRole {
+  color: var(--brand-gray-blue);
+  font-size: var(--text-xs);
+}
+
 .userName {
   overflow: hidden;
   color: #ffffff;

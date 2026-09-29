@@ -11,6 +11,9 @@ interface ModalProps {
   description?: string
   children: ReactNode
   onSubmit?: () => void
+  submitLabel?: string
+  submitVariant?: 'primary' | 'danger'
+  submitting?: boolean
 }
 
 export default function Modal({
@@ -20,6 +23,9 @@ export default function Modal({
   description,
   children,
   onSubmit,
+  submitLabel,
+  submitVariant = 'primary',
+  submitting = false,
 }: ModalProps) {
   const { t } = useI18n()
 
@@ -27,12 +33,16 @@ export default function Modal({
 
   return (
     <div className={styles.overlay} onClick={onClose}>
-      <div
+      <form
         className={styles.modal}
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
         onClick={(event) => event.stopPropagation()}
+        onSubmit={(event) => {
+          event.preventDefault()
+          onSubmit?.()
+        }}
       >
         <div className={styles.header}>
           <div>
@@ -47,16 +57,16 @@ export default function Modal({
           {children}
         </div>
         <div className={styles.footer}>
-          <Button variant="secondary" onClick={onClose}>
+          <Button variant="secondary" onClick={onClose} disabled={submitting}>
             {t('common.cancel')}
           </Button>
           {onSubmit && (
-            <Button onClick={onSubmit}>
-              {t('common.submit')}
+            <Button type="submit" variant={submitVariant} disabled={submitting}>
+              {submitLabel ?? t('common.submit')}
             </Button>
           )}
         </div>
-      </div>
+      </form>
     </div>
   )
 }

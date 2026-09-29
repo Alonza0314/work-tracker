@@ -10,6 +10,7 @@ paths:
   /api/login:
     post:
       summary: Login
+      description: The returned JWT carries `sub` (account), `name`, `role` and `i18n` claims.
       operationId: login
       requestBody:
         required: true
@@ -25,23 +26,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/LoginResponse'
         '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
+          $ref: '#/components/responses/BadRequest'
         '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
+          $ref: '#/components/responses/Unauthorized'
         '500':
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
+          $ref: '#/components/responses/InternalServerError'
 
   /api/logout:
     post:
@@ -51,6 +40,187 @@ paths:
         '204':
           description: No Content
 
+  /api/me:
+    get:
+      summary: Get the logged-in user
+      operationId: getMe
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      summary: Update the logged-in user's preferences
+      description: Returns a new JWT carrying the updated `i18n` claim.
+      operationId: updateMe
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMeRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/me/password:
+    put:
+      summary: Change the logged-in user's password
+      description: Not allowed for the system (config) admin.
+      operationId: changeMyPassword
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeMyPasswordRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/users:
+    get:
+      summary: List users (admin)
+      operationId: listUsers
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListUsersResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      summary: Create a user (admin)
+      description: The new user's initial password is its account.
+      operationId: createUser
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/users/{account}:
+    parameters:
+      - name: account
+        in: path
+        required: true
+        schema:
+          type: string
+    put:
+      summary: Update a user (admin)
+      description: Only the given fields are changed. The system admin cannot be updated.
+      operationId: updateUser
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      summary: Delete a user (admin)
+      description: The system admin and the caller themself cannot be deleted.
+      operationId: deleteUser
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
 components:
   # add `security: [ { bearerAuth: [] } ]` to any path served behind the
   # backend's auth middleware
@@ -59,14 +229,75 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+  responses:
+    BadRequest:
+      description: Bad Request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MessageResponse'
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MessageResponse'
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MessageResponse'
+    NotFound:
+      description: Not Found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MessageResponse'
+    InternalServerError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MessageResponse'
   schemas:
+    Role:
+      type: string
+      enum:
+        - admin
+        - default
+    I18n:
+      type: string
+      enum:
+        - zh-TW
+        - en
+    User:
+      type: object
+      required:
+        - account
+        - name
+        - role
+        - i18n
+        - isSystem
+      properties:
+        account:
+          type: string
+        name:
+          type: string
+        role:
+          $ref: '#/components/schemas/Role'
+        i18n:
+          $ref: '#/components/schemas/I18n'
+        isSystem:
+          type: boolean
+          description: True for the admin defined in the backend config file.
     LoginRequest:
       type: object
       required:
-        - username
+        - account
         - password
       properties:
-        username:
+        account:
           type: string
           example: admin
         password:
@@ -82,6 +313,82 @@ components:
           type: string
         token:
           type: string
+    TokenResponse:
+      type: object
+      required:
+        - message
+        - token
+      properties:
+        message:
+          type: string
+        token:
+          type: string
+    UpdateMeRequest:
+      type: object
+      required:
+        - i18n
+      properties:
+        i18n:
+          $ref: '#/components/schemas/I18n'
+    ChangeMyPasswordRequest:
+      type: object
+      required:
+        - oldPassword
+        - newPassword
+      properties:
+        oldPassword:
+          type: string
+        newPassword:
+          type: string
+    CreateUserRequest:
+      type: object
+      required:
+        - account
+        - name
+        - role
+        - i18n
+      properties:
+        account:
+          type: string
+        name:
+          type: string
+        role:
+          $ref: '#/components/schemas/Role'
+        i18n:
+          $ref: '#/components/schemas/I18n'
+    UpdateUserRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        password:
+          type: string
+        role:
+          $ref: '#/components/schemas/Role'
+        i18n:
+          $ref: '#/components/schemas/I18n'
+    UserResponse:
+      type: object
+      required:
+        - message
+        - user
+      properties:
+        message:
+          type: string
+        user:
+          $ref: '#/components/schemas/User'
+    ListUsersResponse:
+      type: object
+      required:
+        - message
+        - users
+      properties:
+        message:
+          type: string
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
     MessageResponse:
       type: object
       properties:

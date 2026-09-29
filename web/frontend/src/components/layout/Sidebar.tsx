@@ -1,6 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import { LogOut, X } from 'lucide-react'
 import Logo from '../logo/Logo'
+import { useAuth } from '../../auth/useAuth'
 import { useI18n } from '../../i18n/useI18n'
 import { NAV_ITEMS } from './navigation'
 import styles from './sidebar.module.css'
@@ -13,11 +14,11 @@ interface SidebarProps {
 export default function Sidebar({ open, onClose }: SidebarProps) {
   const navigate = useNavigate()
   const { t } = useI18n()
-  const username = localStorage.getItem('username') || 'User'
+  const { session, isAdmin, signOut } = useAuth()
+  const name = session?.name ?? ''
 
-  function handleLogout() {
-    localStorage.removeItem('token')
-    localStorage.removeItem('username')
+  async function handleLogout() {
+    await signOut()
     navigate('/login', { replace: true })
   }
 
@@ -36,7 +37,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
         <nav className={styles.nav}>
           <ul className={styles.list}>
-            {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
+            {NAV_ITEMS.filter((item) => isAdmin || !item.adminOnly).map(({ to, label, icon: Icon }) => (
               <li key={to}>
                 <NavLink
                   to={to}
@@ -54,8 +55,11 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
         <div className={styles.footer}>
           <div className={styles.user}>
-            <span className={styles.avatar} aria-hidden="true">{username.charAt(0).toUpperCase()}</span>
-            <span className={styles.userName}>{username}</span>
+            <span className={styles.avatar} aria-hidden="true">{name.charAt(0).toUpperCase()}</span>
+            <div className={styles.userMeta}>
+              <span className={styles.userName}>{name}</span>
+              <span className={styles.userRole}>{t(isAdmin ? 'role.admin' : 'role.default')}</span>
+            </div>
           </div>
           <button type="button" className={styles.logoutButton} onClick={handleLogout} title={t('nav.logout')}>
             <LogOut size={18} aria-hidden="true" />

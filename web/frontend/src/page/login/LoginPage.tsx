@@ -6,36 +6,38 @@ import LanguageSwitcher from '../../components/languageSwitcher/LanguageSwitcher
 import NotificationContainer from '../../components/notifications/NotificationContainer'
 import { useNotifications } from '../../hooks/useNotifications'
 import { useI18n } from '../../i18n/useI18n'
-import { api, extractErrorMessage } from '../../apiClient'
-import { useNavigate } from 'react-router-dom'
+import { api, errorStatus } from '../../apiClient'
+import { useAuth } from '../../auth/useAuth'
+import { Navigate, useNavigate } from 'react-router-dom'
 import styles from './login-page.module.css'
 
 export default function LoginPage() {
   const navigate = useNavigate()
   const { t } = useI18n()
-  const [username, setUsername] = useState('')
+  const { session, signIn } = useAuth()
+  const [account, setAccount] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
-  const { errors, successes, addError, addSuccess, removeNotification } = useNotifications()
+  const { errors, successes, addError, removeNotification } = useNotifications()
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setIsLoading(true)
 
     try {
-      const response = await api.login({ username, password })
-      const token = response.data.token || ''
-      localStorage.setItem('token', token)
-      localStorage.setItem('username', username)
-      addSuccess(response.data.message || t('login.success'))
+      const response = await api.login({ account, password })
+      signIn(response.data.token)
       navigate('/', { replace: true })
     } catch (error: unknown) {
-      addError(extractErrorMessage(error, t('login.failed')))
-    } finally {
+      addError(errorStatus(error) === 401 ? t('login.invalid') : t('login.failed'))
       setIsLoading(false)
     }
+  }
+
+  if (session) {
+    return <Navigate to="/" replace />
   }
 
   return (
@@ -68,15 +70,15 @@ export default function LoginPage() {
 
           <form className={styles.form} onSubmit={handleSubmit}>
             <div className={styles.field}>
-              <label className={styles.label} htmlFor="username">{t('login.username')}</label>
+              <label className={styles.label} htmlFor="account">{t('login.account')}</label>
               <div className={styles.inputWrap}>
                 <User size={16} className={styles.inputIcon} aria-hidden="true" />
                 <input
-                  id="username"
+                  id="account"
                   className={styles.input}
-                  value={username}
-                  onChange={(event) => setUsername(event.target.value)}
-                  placeholder={t('login.usernamePlaceholder')}
+                  value={account}
+                  onChange={(event) => setAccount(event.target.value)}
+                  placeholder={t('login.accountPlaceholder')}
                   autoComplete="username"
                   autoFocus
                   required

@@ -10,7 +10,7 @@ type dbContextIE struct {
 }
 
 type dbContext struct {
-	db DbIf
+	DbIf
 
 	*logger.BackendLogger
 }
@@ -22,7 +22,7 @@ func newDbContext(dbContextIE *dbContextIE) (*dbContext, error) {
 	}
 
 	return &dbContext{
-		db: db,
+		DbIf: db,
 
 		BackendLogger: dbContextIE.BackendLogger,
 	}, nil
@@ -31,7 +31,7 @@ func newDbContext(dbContextIE *dbContextIE) (*dbContext, error) {
 func (d *dbContext) release() {
 	d.DbLog.Infoln("Release dbContext...")
 
-	if err := d.db.Release(); err != nil {
+	if err := d.DbIf.Release(); err != nil {
 		d.DbLog.Errorf("Failed to release dbContext: %v", err)
 	}
 

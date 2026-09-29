@@ -40,3 +40,7 @@ export function extractErrorMessage(error: unknown, fallback: string): string {
 
   return message || fallback
 }
+
+export function errorStatus(error: unknown): number | undefined {
+  return axios.isAxiosError(error) ? error.response?.status : undefined
+}

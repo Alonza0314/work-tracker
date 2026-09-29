@@ -5,7 +5,7 @@
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**username** | **string** |  | [default to undefined]
+**account** | **string** |  | [default to undefined]
 **password** | **string** |  | [default to undefined]
 
 ## Example
@@ -14,7 +14,7 @@ Name | Type | Description | Notes
 import { LoginRequest } from './api';
 
 const instance: LoginRequest = {
-    username,
+    account,
     password,
 };
 ```

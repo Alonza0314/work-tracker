@@ -1,4 +1,4 @@
-.PHONY: backend frontend openapi run tidy lint clean docker
+.PHONY: backend frontend openapi run test tidy lint clean docker
 
 BACKEND_SRC := $(shell find web/backend -name "*.go")
 FRONTEND_SRC := $(shell find web/frontend -type f ! -path "web/frontend/dist/*" ! -path "web/frontend/node_modules/*")
@@ -52,6 +52,9 @@ openapi:
 
 run:
 	./build/wt -c config.yaml
+
+test:
+	cd web/backend && go test ./...
 
 tidy:
 	cd web/backend && go mod tidy

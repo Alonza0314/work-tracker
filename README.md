@@ -67,10 +67,52 @@ make run
     docker compose down
     ```
 
-## Develop Steps
+## DB
 
-1. Add APIs in backend.
-2. Updaet APIs in postman and export the json file
-3. Update the openapi.yaml with your postman json
-4. Use `make openapi` to generate the api typescript file in frontend
-5. Go to make!
+The backend stores its data through the `DbIf` interface (`web/backend/internal/context/db.go`), so the database can be swapped by adding a new implementation. The implementation is selected in the config:
+
+```yaml
+db:
+  type: "bbolt"          # currently the only supported type
+  path: "/tmp/wt.db"     # file path of the bbolt database
+```
+
+### bbolt
+
+Every bucket stores one record per key, with the value encoded as JSON. Buckets are created automatically when the db is opened.
+
+#### `account`
+
+Users of the system. There is no self-registration: users are added by an admin through `POST /api/users`. A new user's initial password is its account; users can change it after signing in.
+
+| Key | Value |
+| - | - |
+| account name (string, e.g. `alice`) | JSON of `model.Account` (`web/backend/model/account.go`) |
+
+| Field | Type | Description |
+| - | - | - |
+| `account` | string | Login account, same as the key. Cannot be renamed. |
+| `name` | string | Display name. The system admin defaults to its account. |
+| `password` | string | bcrypt hash of the password, never the plain text. |
+| `role` | string | `admin` or `default`. |
+| `i18n` | string | UI language of the user: `zh-TW` or `en`. |
+| `isSystem` | bool | `true` only for the system admin defined by `backend.username` / `backend.password` in the config. |
+
+Example value:
+
+```json
+{
+  "account": "alice",
+  "name": "Alice Wang",
+  "password": "$2a$10$...",
+  "role": "default",
+  "i18n": "en",
+  "isSystem": false
+}
+```
+
+On every startup the backend syncs the system admin from the config into this bucket:
+
+- It creates the account if it is missing, with `name` set to the account.
+- It re-applies the config password and forces `role: admin` and `isSystem: true`. The stored `i18n` is kept.
+- If the configured name changed, the previous system admin keeps its record but loses `isSystem`.
