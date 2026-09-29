@@ -5,12 +5,12 @@ backend:
   port: 8888
 
   jwt:
-    secret: "full-stack-framework"
+    secret: "work-tracker"
     expiresIn: 1h
 
   db:
     type: "bbolt"
-    path: "/tmp/system.db"
+    path: "/tmp/wt.db"
 
   frontendFilePath: "build/frontend"
 

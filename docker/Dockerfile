@@ -8,7 +8,7 @@ COPY web/backend/go.mod web/backend/go.sum ./
 RUN go mod download
 
 COPY web/backend/ .
-RUN go build -o /out/system .
+RUN go build -o /out/wt .
 
 # -------------------------------
 # Stage 2: Build the frontend
@@ -23,10 +23,10 @@ RUN yarn install && yarn build
 # Stage 3: Build the final image
 # -------------------------------
 FROM debian:bookworm-slim
-WORKDIR /system
+WORKDIR /wt
 
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /out/system ./system
+COPY --from=builder /out/wt ./wt
 COPY --from=frontendbuilder /src/frontend/dist ./frontend

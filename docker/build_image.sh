@@ -7,12 +7,12 @@
 #   ./build_image.sh <image tag>
 #
 # Description:
-#   This script is used to build the docker image for the system.
+#   This script is used to build the docker image for work tracker.
 #   The image tag is the name of the image to be built, default is latest.
 ########################################################
 
 LATEST_TAG="latest"
-IMAGE_NAME="alonza0314/full-stack-framework"
+IMAGE_NAME="alonza0314/work-tracker"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # the Dockerfile COPYs web/backend and web/frontend, so the build context has

@@ -1,72 +1,72 @@
-# name: Docker
+name: Docker
 
-# on:
-#   schedule:
-#     - cron: '14 19 * * *'  # UTC 19:14 (Local 03:14)
-#   push:
-#     tags: ['v*.*.*']
-#     branches: [ main ]
-#   pull_request:
-#     branches: [ main ]
+on:
+  schedule:
+    - cron: '14 19 * * *'  # UTC 19:14 (Local 03:14)
+  push:
+    tags: ['v*.*.*']
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
-# env:
-#   IMAGE_NAME: alonza0314/full-stack-framework
+env:
+  IMAGE_NAME: alonza0314/work-tracker
 
-# jobs:
-#   build:
-#     name: Build Check
-#     if: github.event_name == 'pull_request' || (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/')) || github.event_name == 'schedule'
-#     runs-on: ubuntu-latest
-#     steps:
-#       - uses: actions/checkout@v4
+jobs:
+  build:
+    name: Build Check
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/')) || github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-#       - name: Build image
-#         run: ./docker/build_image.sh test
+      - name: Build image
+        run: ./docker/build_image.sh test
 
-#       - name: Test Docker image
-#         run: |
-#           docker images
-#           docker run --rm ${{ env.IMAGE_NAME }}:test ls /system/system
-#           docker run --rm ${{ env.IMAGE_NAME }}:test ls /system/frontend
+      - name: Test Docker image
+        run: |
+          docker images
+          docker run --rm ${{ env.IMAGE_NAME }}:test ls /wt/wt
+          docker run --rm ${{ env.IMAGE_NAME }}:test ls /wt/frontend
 
-#   version-release:
-#     name: Release Version Image
-#     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-#     runs-on: ubuntu-latest
-#     steps:
-#       - uses: actions/checkout@v4
+  version-release:
+    name: Release Version Image
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-#       - name: Log in to Docker Hub
-#         uses: docker/login-action@v3
-#         with:
-#           username: ${{ secrets.DOCKERHUB_USERNAME }}
-#           password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-#       - name: Build and push
-#         uses: docker/build-push-action@v6
-#         with:
-#           context: .
-#           file: docker/Dockerfile
-#           push: true
-#           tags: ${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: true
+          tags: ${{ env.IMAGE_NAME }}:${{ github.ref_name }}
 
-#   latest-release:
-#     name: Release Latest Image
-#     if: github.event_name == 'schedule'
-#     runs-on: ubuntu-latest
-#     steps:
-#       - uses: actions/checkout@v4
+  latest-release:
+    name: Release Latest Image
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-#       - name: Log in to Docker Hub
-#         uses: docker/login-action@v3
-#         with:
-#           username: ${{ secrets.DOCKERHUB_USERNAME }}
-#           password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-#       - name: Build and push
-#         uses: docker/build-push-action@v6
-#         with:
-#           context: .
-#           file: docker/Dockerfile
-#           push: true
-#           tags: ${{ env.IMAGE_NAME }}:latest
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: true
+          tags: ${{ env.IMAGE_NAME }}:latest

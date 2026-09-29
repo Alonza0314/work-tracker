@@ -1,6 +1,6 @@
-# full-stack-framework
+# work-tracker
 
-This is framework project for quickly build a website with full-stack (React + go).
+Work Tracker (wt) — a full-stack website (React + go) for tracking work.
 
 ## Develop Environment
 
@@ -41,7 +41,7 @@ make run
 
 1. Check the config
 
-    Modify system settings at `./docker/config.yaml`, e.g. the default login credential:
+    Modify work tracker settings at `./docker/config.yaml`, e.g. the default login credential:
 
     ```yaml
     username: "admin"
@@ -57,7 +57,7 @@ make run
     docker compose up -d
     ```
 
-    The default db is stored at `/var/lib/system/db`, mounted in the compose file.
+    The default db is stored at `/var/lib/wt/db`, mounted in the compose file.
 
 3. Down the compose
 

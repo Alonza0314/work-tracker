@@ -1,12 +1,12 @@
 services:
-  system:
-    container_name: system
-    image: alonza0314/full-stack-framework:latest
-    command: ./system -c config.yaml
+  wt:
+    container_name: wt
+    image: alonza0314/work-tracker:latest
+    command: ./wt -c config.yaml
     expose:
       - "8888"
     ports:
       - "8888:8888"
     volumes:
-      - ./config.yaml:/system/config.yaml
-      - /var/lib/system/db:/system/db
+      - ./config.yaml:/wt/config.yaml
+      - /var/lib/wt/db:/wt/db

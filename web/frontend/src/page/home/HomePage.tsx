@@ -9,7 +9,7 @@ export default function HomePage() {
       <main className={styles.content}>
         <header className={styles.header}>
           <h2>Home</h2>
-          <p>A clean framework canvas ready for your features.</p>
+          <p>Track your work in one place.</p>
         </header>
 
         <section className={styles.cardGrid}>

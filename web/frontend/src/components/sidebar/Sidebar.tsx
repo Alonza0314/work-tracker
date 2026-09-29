@@ -17,8 +17,8 @@ export default function Sidebar() {
   return (
     <aside className={styles.sidebar}>
       <div>
-        <p className={styles.badge}>Framework</p>
-        <h1 className={styles.brand}>Starter Console</h1>
+        <p className={styles.badge}>WT</p>
+        <h1 className={styles.brand}>Work Tracker</h1>
 
         <nav className={styles.nav}>
           <NavLink to="/" end className={navItemClassName}>Home</NavLink>

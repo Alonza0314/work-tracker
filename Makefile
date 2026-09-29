@@ -5,14 +5,14 @@ FRONTEND_SRC := $(shell find web/frontend -type f ! -path "web/frontend/dist/*" 
 FRONTEND_STAMP := build/frontend/.stamp
 
 # keep in sync with backend.db.path in config.yaml
-DB_PATH := /tmp/system.db
+DB_PATH := /tmp/wt.db
 
 all: backend frontend
 
-build/system: $(BACKEND_SRC)
+build/wt: $(BACKEND_SRC)
 	@echo "[+] Building backend..."
 	mkdir -p build
-	cd web/backend && go build -o ../../build/system .
+	cd web/backend && go build -o ../../build/wt .
 	@echo "[✔] Backend build finished"
 
 build/frontend: $(FRONTEND_SRC)
@@ -28,13 +28,13 @@ build/frontend: $(FRONTEND_SRC)
 	@touch $(FRONTEND_STAMP)
 
 backend:
-	@if [ -f build/system ]; then \
-		if [ -z "$$(find web/backend -name '*.go' -newer build/system)" ]; then \
+	@if [ -f build/wt ]; then \
+		if [ -z "$$(find web/backend -name '*.go' -newer build/wt)" ]; then \
 			echo "[✔] backend is up-to-date, no build needed"; \
 			exit 0; \
 		fi; \
 	fi; \
-	$(MAKE) build/system
+	$(MAKE) build/wt
 
 frontend:
 	@if [ -f $(FRONTEND_STAMP) ]; then \
@@ -51,7 +51,7 @@ openapi:
 	@echo "[✔] OpenAPI client generated"
 
 run:
-	./build/system -c config.yaml
+	./build/wt -c config.yaml
 
 tidy:
 	cd web/backend && go mod tidy

@@ -1,8 +1,8 @@
 /* tslint:disable */
 /* eslint-disable */
 /**
- * full-stack-framework API
- * Automatically generated OpenAPI spec from Postman collection \"full-stack-framework\"
+ * work-tracker API
+ * Automatically generated OpenAPI spec from Postman collection \"work-tracker\"
  *
  * The version of the OpenAPI document: 1.0.0
  * 
