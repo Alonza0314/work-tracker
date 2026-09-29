@@ -223,6 +223,11 @@ const zhTW: Messages = {
   'period.week': '週',
   'period.quarter': '季',
   'period.year': '年度',
+  'export.csv': '匯出 CSV',
+  'export.xlsx': '匯出 Excel',
+  'export.account': '帳號',
+  'export.hours': '花費時間（小時）',
+  'export.failed': '匯出失敗',
 }
 
 export default zhTW

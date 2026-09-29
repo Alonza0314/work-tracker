@@ -573,3 +573,9 @@
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
+
+.filterActions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}

@@ -162,6 +162,7 @@ Request flow: `main.go` → `cmd/wt.go` (cobra; loads YAML config via `util.Load
     - Each save is a full PUT of the row. Rows remount (key includes their values) after the list reloads.
     - `entryDraft.ts` converts between entries and editable drafts and applies the per-kind required fields (record vs todo) and the half-hour check (`isValidHours`).
   - `WorkRecordTable` is the read-only table of the everyone's page.
+  - The everyone's page exports what it shows (period and filters) as CSV (UTF-8 with a BOM, for Excel) or `.xlsx` via `work/export.ts`. `write-excel-file` is imported dynamically, so it only loads on export.
 - **Auth** (`auth/`): `AuthProvider` holds the session parsed from the JWT in `localStorage.token` (`account`, `name`, `role`, `i18n`, expiry). `useAuth()` returns `{ session, isAdmin, signIn(token), signOut(), changeLocale(locale) }`.
   - `signIn` also switches the UI to the token's i18n.
   - `changeLocale` persists the language through `api.updateMe` when signed in.

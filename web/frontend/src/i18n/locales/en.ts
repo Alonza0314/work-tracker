@@ -223,6 +223,11 @@ const en = {
   'period.week': 'Week',
   'period.quarter': 'Quarter',
   'period.year': 'Year',
+  'export.csv': 'Export CSV',
+  'export.xlsx': 'Export Excel',
+  'export.account': 'Account',
+  'export.hours': 'Hours (h)',
+  'export.failed': 'Export failed',
 } as const
 
 export type MessageKey = keyof typeof en

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Download } from 'lucide-react'
 import type { WorkMember, WorkRecordListResponse } from '../../api'
 import { api } from '../../apiClient'
 import Button from '../../components/button/button'
@@ -9,6 +10,7 @@ import WeekNavigator from '../../components/weekNavigator/WeekNavigator'
 import { useNotifications } from '../../hooks/useNotifications'
 import { useI18n } from '../../i18n/useI18n'
 import { parseDate, quarterOf, quarterRange, today, weekEnd, weekStart, type Quarter } from '../../work/format'
+import { downloadCsv, downloadXlsx, workRecordTable } from '../../work/export'
 import { useWork } from '../../work/useWork'
 import WorkRecordTable from './WorkRecordTable'
 import styles from './work.module.css'
@@ -84,6 +86,36 @@ export default function AllWorkPage() {
   }
 
   const isFiltered = Object.values(filters).some((value) => value !== '')
+  const [exporting, setExporting] = useState(false)
+
+  // exports exactly what the table shows: the period with its filters
+  async function exportRecords(format: 'csv' | 'xlsx') {
+    if (!result) {
+      return
+    }
+    const table = workRecordTable(
+      result.records,
+      [t('work.date'), t('work.member'), t('export.account'), t('work.category'), t('work.description'), t('export.hours'), t('work.project')],
+      memberName,
+      categories,
+      projects,
+    )
+    const period = mode === 'week' ? `${range.from}_${range.to}` : `${year}-Q${quarter}`
+    const fileName = `work-records_${period}.${format}`
+
+    setExporting(true)
+    try {
+      if (format === 'csv') {
+        downloadCsv(table, fileName)
+      } else {
+        await downloadXlsx(table, fileName, period)
+      }
+    } catch {
+      addError(t('export.failed'))
+    } finally {
+      setExporting(false)
+    }
+  }
 
   return (
     <div className={styles.page}>
@@ -175,13 +207,31 @@ export default function AllWorkPage() {
               ))}
             </SelectInput>
           </Field>
-          <Button
-            variant="ghost"
-            disabled={!isFiltered}
-            onClick={() => setFilters(EMPTY_FILTERS)}
-          >
-            {t('all.reset')}
-          </Button>
+          <div className={styles.filterActions}>
+            <Button
+              variant="ghost"
+              disabled={!isFiltered}
+              onClick={() => setFilters(EMPTY_FILTERS)}
+            >
+              {t('all.reset')}
+            </Button>
+            <Button
+              variant="secondary"
+              icon={<Download aria-hidden="true" />}
+              disabled={exporting || !result?.records.length}
+              onClick={() => void exportRecords('csv')}
+            >
+              {t('export.csv')}
+            </Button>
+            <Button
+              variant="secondary"
+              icon={<Download aria-hidden="true" />}
+              disabled={exporting || !result?.records.length}
+              onClick={() => void exportRecords('xlsx')}
+            >
+              {t('export.xlsx')}
+            </Button>
+          </div>
         </div>
 
         <WorkRecordTable records={result?.records ?? []} memberName={memberName} emptyText={t('records.empty')} />
