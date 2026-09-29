@@ -45,7 +45,7 @@ Every new endpoint goes through all of these steps. The frontend never calls the
    `src/apiClient.ts` handles the rest:
    - It builds a single `DefaultApi` with `basePath` = `VITE_API_BASE_URL`, or else the page's own origin, because the backend serves the app and the API together. Never hard-code a host or port. The `servers` URL in openapi.yaml is ignored.
    - It supplies the bearer token from `localStorage.token`.
-   - On any 401 outside `/login` it clears the token, marks the session as expired (`markSessionExpired`, in sessionStorage) and hard-redirects to `/login`, which then shows a "sign in again" notice once (`takeSessionExpired`). A wrong password on the login page is a 401 too, but it is not marked.
+   - On any 401 outside `/login` it calls `leaveToLogin('expired')`: it clears the token, stores a login notice in sessionStorage and hard-redirects to `/login`, which shows the notice once (`takeLoginNotice`). A wrong password on the login page is a 401 too, but it is not marked.
 
 ## Backend architecture (`web/backend`, Go module name `backend`)
 
@@ -129,6 +129,15 @@ Request flow: `main.go` → `cmd/wt.go` (cobra; loads YAML config via `util.Load
   - A workday (same `workdayOf` rule as the weekly target) counts as filled once it has at least one work record; todos don't count.
   - Days before an account's `createdAt` are skipped.
 - Permission is `checkViewAll`, as for everyone's records. The home page shows it (`MissingPanel`) to whoever `canViewAll`.
+
+### Backup, restore and reset
+
+- `BackupDbIf` (`Dump` / `Restore` / `Reset`) moves the whole database as a DB-agnostic `model.Backup`.
+  - bbolt restores and resets in one transaction, and `restoreByID` moves each bucket's sequence past the restored IDs.
+- `processor/backup.go` zips `manifest.json` plus one JSON file per table (`backupTables`). A restore validates the zip (manifest app and version, JSON, duplicate accounts) before writing anything, and then runs `InitSystemAdmin`.
+  - A reset needs `Confirm == constant.RESET_CONFIRM`.
+  - **When adding a bucket, add it to `model.Backup`, `Dump`/`Restore` and `backupTables`, and bump `BACKUP_VERSION` if old backups can't be read as-is.**
+- The routes are admin-only under `/api/system/`. The frontend `SystemModal` (sidebar) signs out afterwards with `leaveToLogin('restored' | 'reset')`, and the login page shows the matching notice.
 
 ### Backend coding style (follow it exactly)
 

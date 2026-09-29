@@ -8,7 +8,7 @@ import { useNotifications } from '../../hooks/useNotifications'
 import { useI18n } from '../../i18n/useI18n'
 import { api, errorStatus } from '../../apiClient'
 import { useAuth } from '../../auth/useAuth'
-import { takeSessionExpired } from '../../auth/session'
+import { takeLoginNotice } from '../../auth/session'
 import { Navigate, useNavigate } from 'react-router-dom'
 import styles from './login-page.module.css'
 
@@ -20,8 +20,8 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  // read once: sent here because the session expired
-  const [expired] = useState(takeSessionExpired)
+  // read once: why the user was sent here, if anything
+  const [notice] = useState(takeLoginNotice)
 
   const { errors, successes, addError, removeNotification } = useNotifications()
 
@@ -71,10 +71,10 @@ export default function LoginPage() {
             <p className={styles.subtitle}>{t('login.subtitle')}</p>
           </div>
 
-          {expired && (
+          {notice && (
             <p className={styles.expired} role="status">
               <Clock size={16} aria-hidden="true" />
-              {t('login.expired')}
+              {t(notice === 'expired' ? 'login.expired' : notice === 'restored' ? 'login.restored' : 'login.reset')}
             </p>
           )}
 

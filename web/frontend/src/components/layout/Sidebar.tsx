@@ -1,6 +1,8 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LogOut, X } from 'lucide-react'
+import { useState } from 'react'
+import { DatabaseBackup, LogOut, X } from 'lucide-react'
 import Logo from '../logo/Logo'
+import SystemModal from '../system/SystemModal'
 import { useAuth } from '../../auth/useAuth'
 import { useI18n } from '../../i18n/useI18n'
 import { useWork } from '../../work/useWork'
@@ -10,14 +12,16 @@ import styles from './sidebar.module.css'
 interface SidebarProps {
   open: boolean
   onClose: () => void
+  onError: (message: string) => void
 }
 
-export default function Sidebar({ open, onClose }: SidebarProps) {
+export default function Sidebar({ open, onClose, onError }: SidebarProps) {
   const navigate = useNavigate()
   const { t } = useI18n()
   const { session, isAdmin, signOut } = useAuth()
   const { canViewAll } = useWork()
   const name = session?.name ?? ''
+  const [systemOpen, setSystemOpen] = useState(false)
 
   async function handleLogout() {
     await signOut()
@@ -55,6 +59,15 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           </ul>
         </nav>
 
+        {isAdmin && (
+          <div className={styles.system}>
+            <button type="button" className={styles.navItem} onClick={() => setSystemOpen(true)}>
+              <DatabaseBackup size={18} aria-hidden="true" />
+              <span>{t('system.title')}</span>
+            </button>
+          </div>
+        )}
+
         <div className={styles.footer}>
           <div className={styles.user}>
             <span className={styles.avatar} aria-hidden="true">{name.charAt(0).toUpperCase()}</span>
@@ -69,6 +82,8 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           </button>
         </div>
       </aside>
+
+      {systemOpen && <SystemModal onClose={() => setSystemOpen(false)} onError={onError} />}
     </>
   )
 }

@@ -878,6 +878,100 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /api/system/backup:
+    get:
+      summary: Download a full backup (admin)
+      description: >-
+        A zip with manifest.json and one JSON file per table (account,
+        category, project, work, todo, holiday, setting). Accounts include
+        their password hashes.
+      operationId: downloadBackup
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The backup zip
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/system/restore:
+    post:
+      summary: Replace all data with a backup (admin)
+      description: >-
+        Replaces every table with the uploaded backup zip (at most 50 MB). A
+        file that is not a Work Tracker backup is refused and nothing changes.
+        The config admin is re-applied afterwards.
+      operationId: restoreBackup
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/system/reset:
+    post:
+      summary: Delete all data (admin)
+      description: >-
+        Like a fresh install, only the config admin is left and government
+        holidays sync again.
+      operationId: resetSystem
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
 components:
   # add `security: [ { bearerAuth: [] } ]` to any path served behind the
   # backend's auth middleware
@@ -1526,6 +1620,15 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/MissingMember'
+    ResetRequest:
+      type: object
+      required:
+        - confirm
+      properties:
+        confirm:
+          type: string
+          description: Must be RESET.
+          example: RESET
     MessageResponse:
       type: object
       properties:

@@ -1,0 +1,62 @@
+.sections {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.section {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.danger {
+  border-color: var(--danger-200);
+  background: var(--danger-50);
+}
+
+.danger .heading {
+  color: var(--danger-700);
+}
+
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.heading {
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+
+.text {
+  margin-top: 0.25rem;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.controls > input {
+  flex: 1;
+}
+
+.fileInput {
+  display: none;
+}
+
+.fileName {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

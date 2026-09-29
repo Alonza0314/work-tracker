@@ -9,10 +9,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"go.etcd.io/bbolt"
+	bboltErrors "go.etcd.io/bbolt/errors"
 )
 
 const (
@@ -97,18 +99,29 @@ func bboltGet[T any](db *bbolt.DB, bucket, key string, notFound error) (*T, erro
 
 // bboltList returns the values in key order that satisfy keep (nil keeps all).
 func bboltList[T any](db *bbolt.DB, bucket string, keep func(*T) bool) ([]*T, error) {
-	values := []*T{}
+	var values []*T
 	err := db.View(func(tx *bbolt.Tx) error {
-		return tx.Bucket([]byte(bucket)).ForEach(func(_, data []byte) error {
-			value := new(T)
-			if err := json.Unmarshal(data, value); err != nil {
-				return err
-			}
-			if keep == nil || keep(value) {
-				values = append(values, value)
-			}
-			return nil
-		})
+		var err error
+		values, err = bboltListTx(tx, bucket, keep)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return values, nil
+}
+
+func bboltListTx[T any](tx *bbolt.Tx, bucket string, keep func(*T) bool) ([]*T, error) {
+	values := []*T{}
+	err := tx.Bucket([]byte(bucket)).ForEach(func(_, data []byte) error {
+		value := new(T)
+		if err := json.Unmarshal(data, value); err != nil {
+			return err
+		}
+		if keep == nil || keep(value) {
+			values = append(values, value)
+		}
+		return nil
 	})
 	if err != nil {
 		return nil, err
@@ -531,4 +544,135 @@ func (b *bboltDb) SetHolidaySyncedAt(at time.Time) error {
 	return b.db.Update(func(tx *bbolt.Tx) error {
 		return bboltPut(tx, bboltSettingBucket, bboltHolidaySyncKey, &bboltHolidaySync{LastSyncedAt: at}, false, nil, nil)
 	})
+}
+
+// backup
+
+func (b *bboltDb) Dump() (*model.Backup, error) {
+	backup := &model.Backup{}
+	err := b.db.View(func(tx *bbolt.Tx) error {
+		var err error
+		if backup.Accounts, err = dumpBucket[model.Account](tx, bboltAccountBucket); err != nil {
+			return err
+		}
+		if backup.Categories, err = dumpBucket[model.WorkOption](tx, bboltCategoryBucket); err != nil {
+			return err
+		}
+		if backup.Projects, err = dumpBucket[model.WorkOption](tx, bboltProjectBucket); err != nil {
+			return err
+		}
+		if backup.WorkRecords, err = dumpBucket[model.WorkRecord](tx, bboltWorkRecordBucket); err != nil {
+			return err
+		}
+		if backup.Todos, err = dumpBucket[model.Todo](tx, bboltTodoBucket); err != nil {
+			return err
+		}
+		if backup.Holidays, err = dumpBucket[model.Holiday](tx, bboltHolidayBucket); err != nil {
+			return err
+		}
+
+		settings := tx.Bucket([]byte(bboltSettingBucket))
+		if data := settings.Get([]byte(bboltWorkSettingKey)); data != nil {
+			if err := json.Unmarshal(data, &backup.WorkSetting); err != nil {
+				return err
+			}
+		}
+		if data := settings.Get([]byte(bboltHolidaySyncKey)); data != nil {
+			sync := bboltHolidaySync{}
+			if err := json.Unmarshal(data, &sync); err != nil {
+				return err
+			}
+			backup.HolidaySyncedAt = sync.LastSyncedAt
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return backup, nil
+}
+
+func dumpBucket[T any](tx *bbolt.Tx, bucket string) ([]T, error) {
+	values, err := bboltListTx[T](tx, bucket, nil)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]T, 0, len(values))
+	for _, value := range values {
+		result = append(result, *value)
+	}
+	return result, nil
+}
+
+func (b *bboltDb) Restore(backup *model.Backup) error {
+	return b.db.Update(func(tx *bbolt.Tx) error {
+		if err := bboltRecreateBuckets(tx); err != nil {
+			return err
+		}
+
+		for i := range backup.Accounts {
+			if err := bboltPut(tx, bboltAccountBucket, backup.Accounts[i].Account, &backup.Accounts[i], false, nil, ErrAccountExists); err != nil {
+				return err
+			}
+		}
+		for _, h := range backup.Holidays {
+			if err := bboltPut(tx, bboltHolidayBucket, bboltHolidayKey(h.Date, h.Source), h, false, nil, nil); err != nil {
+				return err
+			}
+		}
+
+		if err := restoreByID(tx, bboltCategoryBucket, backup.Categories, func(o model.WorkOption) string { return o.ID }); err != nil {
+			return err
+		}
+		if err := restoreByID(tx, bboltProjectBucket, backup.Projects, func(o model.WorkOption) string { return o.ID }); err != nil {
+			return err
+		}
+		if err := restoreByID(tx, bboltWorkRecordBucket, backup.WorkRecords, func(r model.WorkRecord) string { return r.ID }); err != nil {
+			return err
+		}
+		if err := restoreByID(tx, bboltTodoBucket, backup.Todos, func(t model.Todo) string { return t.ID }); err != nil {
+			return err
+		}
+
+		if err := bboltPut(tx, bboltSettingBucket, bboltWorkSettingKey, backup.WorkSetting, false, nil, nil); err != nil {
+			return err
+		}
+		if !backup.HolidaySyncedAt.IsZero() {
+			return bboltPut(tx, bboltSettingBucket, bboltHolidaySyncKey, &bboltHolidaySync{LastSyncedAt: backup.HolidaySyncedAt}, false, nil, nil)
+		}
+		return nil
+	})
+}
+
+// restoreByID stores values keyed by their sequence ID and moves the bucket's
+// sequence past the largest one, so new IDs continue after them.
+func restoreByID[T any](tx *bbolt.Tx, bucket string, values []T, id func(T) string) error {
+	var last uint64
+	for _, value := range values {
+		key := id(value)
+		if err := bboltPut(tx, bucket, key, value, false, nil, nil); err != nil {
+			return err
+		}
+		if seq, err := strconv.ParseUint(key, 10, 64); err == nil && seq > last {
+			last = seq
+		}
+	}
+	return tx.Bucket([]byte(bucket)).SetSequence(last)
+}
+
+func (b *bboltDb) Reset() error {
+	return b.db.Update(bboltRecreateBuckets)
+}
+
+// bboltRecreateBuckets empties every bucket and restarts its ID sequence.
+func bboltRecreateBuckets(tx *bbolt.Tx) error {
+	for _, bucket := range bboltBuckets {
+		if err := tx.DeleteBucket([]byte(bucket)); err != nil && !errors.Is(err, bboltErrors.ErrBucketNotFound) {
+			return fmt.Errorf("failed to delete bucket %s: %v", bucket, err)
+		}
+		if _, err := tx.CreateBucket([]byte(bucket)); err != nil {
+			return fmt.Errorf("failed to create bucket %s: %v", bucket, err)
+		}
+	}
+	return nil
 }

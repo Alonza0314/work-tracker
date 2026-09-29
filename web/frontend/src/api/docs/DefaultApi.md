@@ -17,6 +17,7 @@ All URIs are relative to *http://127.0.0.1:5000*
 |[**deleteMyWorkRecord**](#deletemyworkrecord) | **DELETE** /api/me/work-records/{id} | Delete one of my work records|
 |[**deleteProject**](#deleteproject) | **DELETE** /api/projects/{id} | Delete a project (admin)|
 |[**deleteUser**](#deleteuser) | **DELETE** /api/users/{account} | Delete a user (admin)|
+|[**downloadBackup**](#downloadbackup) | **GET** /api/system/backup | Download a full backup (admin)|
 |[**getMe**](#getme) | **GET** /api/me | Get the logged-in user|
 |[**getWeekSummary**](#getweeksummary) | **GET** /api/me/week-summary | Summarize my week|
 |[**getWorkOptions**](#getworkoptions) | **GET** /api/work/options | Get task categories, projects and the work table setting|
@@ -29,6 +30,8 @@ All URIs are relative to *http://127.0.0.1:5000*
 |[**listWorkMembers**](#listworkmembers) | **GET** /api/work/members | List members for the everyone\&#39;s work table|
 |[**login**](#login) | **POST** /api/login | Login|
 |[**logout**](#logout) | **POST** /api/logout | Logout|
+|[**resetSystem**](#resetsystem) | **POST** /api/system/reset | Delete all data (admin)|
+|[**restoreBackup**](#restorebackup) | **POST** /api/system/restore | Replace all data with a backup (admin)|
 |[**saveHoliday**](#saveholiday) | **PUT** /api/holidays/{date} | Set a manual holiday or makeup workday (admin)|
 |[**syncHolidays**](#syncholidays) | **POST** /api/holidays/sync | Sync the government office calendar now (admin)|
 |[**updateCategory**](#updatecategory) | **PUT** /api/categories/{id} | Rename or (de)activate a task category (admin)|
@@ -757,6 +760,53 @@ const { status, data } = await apiInstance.deleteUser(
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
+# **downloadBackup**
+> File downloadBackup()
+
+A zip with manifest.json and one JSON file per table (account, category, project, work, todo, holiday, setting). Accounts include their password hashes.
+
+### Example
+
+```typescript
+import {
+    DefaultApi,
+    Configuration
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new DefaultApi(configuration);
+
+const { status, data } = await apiInstance.downloadBackup();
+```
+
+### Parameters
+This endpoint does not have any parameters.
+
+
+### Return type
+
+**File**
+
+### Authorization
+
+[bearerAuth](../README.md#bearerAuth)
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/zip, application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | The backup zip |  -  |
+|**401** | Unauthorized |  -  |
+|**403** | Forbidden |  -  |
+|**500** | Internal Server Error |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
 # **getMe**
 > UserResponse getMe()
 
@@ -1368,6 +1418,117 @@ No authorization required
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 |**204** | No Content |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **resetSystem**
+> MessageResponse resetSystem(resetRequest)
+
+Like a fresh install, only the config admin is left and government holidays sync again.
+
+### Example
+
+```typescript
+import {
+    DefaultApi,
+    Configuration,
+    ResetRequest
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new DefaultApi(configuration);
+
+let resetRequest: ResetRequest; //
+
+const { status, data } = await apiInstance.resetSystem(
+    resetRequest
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **resetRequest** | **ResetRequest**|  | |
+
+
+### Return type
+
+**MessageResponse**
+
+### Authorization
+
+[bearerAuth](../README.md#bearerAuth)
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | OK |  -  |
+|**400** | Bad Request |  -  |
+|**401** | Unauthorized |  -  |
+|**403** | Forbidden |  -  |
+|**500** | Internal Server Error |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **restoreBackup**
+> MessageResponse restoreBackup()
+
+Replaces every table with the uploaded backup zip (at most 50 MB). A file that is not a Work Tracker backup is refused and nothing changes. The config admin is re-applied afterwards.
+
+### Example
+
+```typescript
+import {
+    DefaultApi,
+    Configuration
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new DefaultApi(configuration);
+
+let file: File; // (default to undefined)
+
+const { status, data } = await apiInstance.restoreBackup(
+    file
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **file** | [**File**] |  | defaults to undefined|
+
+
+### Return type
+
+**MessageResponse**
+
+### Authorization
+
+[bearerAuth](../README.md#bearerAuth)
+
+### HTTP request headers
+
+ - **Content-Type**: multipart/form-data
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | OK |  -  |
+|**400** | Bad Request |  -  |
+|**401** | Unauthorized |  -  |
+|**403** | Forbidden |  -  |
+|**500** | Internal Server Error |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 

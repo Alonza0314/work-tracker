@@ -1,8 +1,10 @@
 import { I18n, Role } from '../api'
 
 const TOKEN_STORAGE_KEY = 'token'
-// set when an expired session sends the user back to /login
-const SESSION_EXPIRED_KEY = 'sessionExpired'
+// why the user was sent back to /login, shown there once
+const LOGIN_NOTICE_KEY = 'loginNotice'
+
+export type LoginNotice = 'expired' | 'restored' | 'reset'
 
 export interface Session {
   token: string
@@ -25,15 +27,23 @@ export function clearToken(): void {
   localStorage.removeItem(TOKEN_STORAGE_KEY)
 }
 
-// the login page tells the user to sign in again, once
-export function markSessionExpired(): void {
-  sessionStorage.setItem(SESSION_EXPIRED_KEY, '1')
+// the login page tells the user why to sign in again, once
+export function setLoginNotice(notice: LoginNotice): void {
+  sessionStorage.setItem(LOGIN_NOTICE_KEY, notice)
 }
 
-export function takeSessionExpired(): boolean {
-  const expired = sessionStorage.getItem(SESSION_EXPIRED_KEY) !== null
-  sessionStorage.removeItem(SESSION_EXPIRED_KEY)
-  return expired
+export function takeLoginNotice(): LoginNotice | null {
+  const notice = sessionStorage.getItem(LOGIN_NOTICE_KEY)
+  sessionStorage.removeItem(LOGIN_NOTICE_KEY)
+  return notice === 'expired' || notice === 'restored' || notice === 'reset' ? notice : null
+}
+
+// signs out and reloads into /login with the notice (hard reload, so every
+// component starts clean)
+export function leaveToLogin(notice: LoginNotice): void {
+  clearToken()
+  setLoginNotice(notice)
+  window.location.assign('/login')
 }
 
 function decodeBase64Url(segment: string): string {

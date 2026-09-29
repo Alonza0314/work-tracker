@@ -162,6 +162,12 @@ export interface MissingMember {
     'missingCount': number;
     'missingDates': Array<string>;
 }
+export interface ResetRequest {
+    /**
+     * Must be RESET.
+     */
+    'confirm': string;
+}
 
 export const Role = {
     Admin: 'admin',
@@ -850,6 +856,40 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             };
         },
         /**
+         * A zip with manifest.json and one JSON file per table (account, category, project, work, todo, holiday, setting). Accounts include their password hashes.
+         * @summary Download a full backup (admin)
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        downloadBackup: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/system/backup`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Accept'] = 'application/zip,application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
          * 
          * @summary Get the logged-in user
          * @param {*} [options] Override http request option.
@@ -1323,6 +1363,89 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             setSearchParams(localVarUrlObj, localVarQueryParameter);
             let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
             localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Like a fresh install, only the config admin is left and government holidays sync again.
+         * @summary Delete all data (admin)
+         * @param {ResetRequest} resetRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        resetSystem: async (resetRequest: ResetRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'resetRequest' is not null or undefined
+            assertParamExists('resetSystem', 'resetRequest', resetRequest)
+            const localVarPath = `/api/system/reset`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(resetRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Replaces every table with the uploaded backup zip (at most 50 MB). A file that is not a Work Tracker backup is refused and nothing changes. The config admin is re-applied afterwards.
+         * @summary Replace all data with a backup (admin)
+         * @param {File} file 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        restoreBackup: async (file: File, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'file' is not null or undefined
+            assertParamExists('restoreBackup', 'file', file)
+            const localVarPath = `/api/system/restore`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+            const localVarFormParams = new ((configuration && configuration.formDataCtor) || FormData)();
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+
+            if (file !== undefined) { 
+                localVarFormParams.append('file', file as any);
+            }
+            localVarHeaderParameter['Content-Type'] = 'multipart/form-data';
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = localVarFormParams;
 
             return {
                 url: toPathString(localVarUrlObj),
@@ -1879,6 +2002,18 @@ export const DefaultApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
+         * A zip with manifest.json and one JSON file per table (account, category, project, work, todo, holiday, setting). Accounts include their password hashes.
+         * @summary Download a full backup (admin)
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async downloadBackup(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<File>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.downloadBackup(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.downloadBackup']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
          * 
          * @summary Get the logged-in user
          * @param {*} [options] Override http request option.
@@ -2031,6 +2166,32 @@ export const DefaultApiFp = function(configuration?: Configuration) {
             const localVarAxiosArgs = await localVarAxiosParamCreator.logout(options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['DefaultApi.logout']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Like a fresh install, only the config admin is left and government holidays sync again.
+         * @summary Delete all data (admin)
+         * @param {ResetRequest} resetRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async resetSystem(resetRequest: ResetRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<MessageResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.resetSystem(resetRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.resetSystem']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Replaces every table with the uploaded backup zip (at most 50 MB). A file that is not a Work Tracker backup is refused and nothing changes. The config admin is re-applied afterwards.
+         * @summary Replace all data with a backup (admin)
+         * @param {File} file 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async restoreBackup(file: File, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<MessageResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.restoreBackup(file, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.restoreBackup']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
@@ -2296,6 +2457,15 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
             return localVarFp.deleteUser(account, options).then((request) => request(axios, basePath));
         },
         /**
+         * A zip with manifest.json and one JSON file per table (account, category, project, work, todo, holiday, setting). Accounts include their password hashes.
+         * @summary Download a full backup (admin)
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        downloadBackup(options?: RawAxiosRequestConfig): AxiosPromise<File> {
+            return localVarFp.downloadBackup(options).then((request) => request(axios, basePath));
+        },
+        /**
          * 
          * @summary Get the logged-in user
          * @param {*} [options] Override http request option.
@@ -2413,6 +2583,26 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
          */
         logout(options?: RawAxiosRequestConfig): AxiosPromise<void> {
             return localVarFp.logout(options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Like a fresh install, only the config admin is left and government holidays sync again.
+         * @summary Delete all data (admin)
+         * @param {ResetRequest} resetRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        resetSystem(resetRequest: ResetRequest, options?: RawAxiosRequestConfig): AxiosPromise<MessageResponse> {
+            return localVarFp.resetSystem(resetRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Replaces every table with the uploaded backup zip (at most 50 MB). A file that is not a Work Tracker backup is refused and nothing changes. The config admin is re-applied afterwards.
+         * @summary Replace all data with a backup (admin)
+         * @param {File} file 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        restoreBackup(file: File, options?: RawAxiosRequestConfig): AxiosPromise<MessageResponse> {
+            return localVarFp.restoreBackup(file, options).then((request) => request(axios, basePath));
         },
         /**
          * Creates or replaces the manual entry of the date; it wins over the government entry.
@@ -2661,6 +2851,16 @@ export class DefaultApi extends BaseAPI {
     }
 
     /**
+     * A zip with manifest.json and one JSON file per table (account, category, project, work, todo, holiday, setting). Accounts include their password hashes.
+     * @summary Download a full backup (admin)
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public downloadBackup(options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).downloadBackup(options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
      * 
      * @summary Get the logged-in user
      * @param {*} [options] Override http request option.
@@ -2789,6 +2989,28 @@ export class DefaultApi extends BaseAPI {
      */
     public logout(options?: RawAxiosRequestConfig) {
         return DefaultApiFp(this.configuration).logout(options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Like a fresh install, only the config admin is left and government holidays sync again.
+     * @summary Delete all data (admin)
+     * @param {ResetRequest} resetRequest 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public resetSystem(resetRequest: ResetRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).resetSystem(resetRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Replaces every table with the uploaded backup zip (at most 50 MB). A file that is not a Work Tracker backup is refused and nothing changes. The config admin is re-applied afterwards.
+     * @summary Replace all data with a backup (admin)
+     * @param {File} file 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public restoreBackup(file: File, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).restoreBackup(file, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**

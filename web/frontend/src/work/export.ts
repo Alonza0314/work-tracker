@@ -29,7 +29,7 @@ export function workRecordTable(
   }
 }
 
-function saveBlob(blob: Blob, fileName: string): void {
+export function saveBlob(blob: Blob, fileName: string): void {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
@@ -37,7 +37,8 @@ function saveBlob(blob: Blob, fileName: string): void {
   document.body.appendChild(link)
   link.click()
   link.remove()
-  URL.revokeObjectURL(url)
+  // revoking right away can cut the download off before the browser reads it
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
 function csvField(value: string | number): string {

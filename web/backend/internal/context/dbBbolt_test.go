@@ -644,3 +644,119 @@ func TestBboltHolidaySyncedAt(t *testing.T) {
 		t.Errorf("GetHolidaySyncedAt = %v, %v", at, err)
 	}
 }
+
+func fillTestDb(t *testing.T, db *bboltDb) *model.Backup {
+	t.Helper()
+
+	if err := db.CreateAccount(testAccount("ALICE")); err != nil {
+		t.Fatal(err)
+	}
+	category := &model.WorkOption{Name: "Dev", Active: true, Color: "blue"}
+	project := &model.WorkOption{Name: "WT", Active: true}
+	if err := db.CreateCategory(category); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.CreateProject(project); err != nil {
+		t.Fatal(err)
+	}
+	for _, date := range []string{"2026-09-01", "2026-09-02"} {
+		if err := db.CreateWorkRecord(testRecord("ALICE", date, category.ID, project.ID)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := db.CreateTodo(testTodo("ALICE")); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.SaveHoliday(testHoliday("2026-10-09", "Day off", "holiday", "gov")); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.UpdateWorkSetting(&model.WorkSetting{AllowViewAll: true, StartDate: "2026-09-01"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.SetHolidaySyncedAt(time.Date(2026, 9, 29, 1, 0, 0, 0, time.UTC)); err != nil {
+		t.Fatal(err)
+	}
+
+	backup, err := db.Dump()
+	if err != nil {
+		t.Fatalf("Dump: %v", err)
+	}
+	return backup
+}
+
+func TestBboltDumpHasEveryRecord(t *testing.T) {
+	db := newTestBboltDb(t)
+	backup := fillTestDb(t, db)
+
+	if len(backup.Accounts) != 1 || len(backup.Categories) != 1 || len(backup.Projects) != 1 ||
+		len(backup.WorkRecords) != 2 || len(backup.Todos) != 1 || len(backup.Holidays) != 1 {
+		t.Errorf("backup counts = %d accounts, %d categories, %d projects, %d records, %d todos, %d holidays",
+			len(backup.Accounts), len(backup.Categories), len(backup.Projects), len(backup.WorkRecords), len(backup.Todos), len(backup.Holidays))
+	}
+	if !backup.WorkSetting.AllowViewAll || backup.WorkSetting.StartDate != "2026-09-01" || backup.HolidaySyncedAt.IsZero() {
+		t.Errorf("settings = %+v, synced %v", backup.WorkSetting, backup.HolidaySyncedAt)
+	}
+}
+
+func TestBboltRestoreReplacesEverythingAndContinuesIDs(t *testing.T) {
+	source := newTestBboltDb(t)
+	backup := fillTestDb(t, source)
+
+	target := newTestBboltDb(t)
+	if err := target.CreateAccount(testAccount("BOB")); err != nil {
+		t.Fatal(err)
+	}
+	if err := target.CreateWorkRecord(testRecord("BOB", "2026-01-01", "x", "y")); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := target.Restore(backup); err != nil {
+		t.Fatalf("Restore: %v", err)
+	}
+
+	restored, err := target.Dump()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(restored.Accounts) != 1 || restored.Accounts[0].Account != "ALICE" || len(restored.WorkRecords) != 2 {
+		t.Errorf("restored = %+v", restored)
+	}
+	if restored.WorkSetting != backup.WorkSetting || !restored.HolidaySyncedAt.Equal(backup.HolidaySyncedAt) {
+		t.Errorf("settings = %+v, synced %v", restored.WorkSetting, restored.HolidaySyncedAt)
+	}
+
+	// new records get IDs after the restored ones
+	record := testRecord("ALICE", "2026-09-03", "c", "p")
+	if err := target.CreateWorkRecord(record); err != nil {
+		t.Fatal(err)
+	}
+	for _, old := range backup.WorkRecords {
+		if record.ID <= old.ID {
+			t.Errorf("new ID %s does not follow restored ID %s", record.ID, old.ID)
+		}
+	}
+}
+
+func TestBboltResetEmptiesEverything(t *testing.T) {
+	db := newTestBboltDb(t)
+	fillTestDb(t, db)
+
+	if err := db.Reset(); err != nil {
+		t.Fatalf("Reset: %v", err)
+	}
+
+	backup, err := db.Dump()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(backup.Accounts)+len(backup.Categories)+len(backup.Projects)+len(backup.WorkRecords)+len(backup.Todos)+len(backup.Holidays) != 0 ||
+		backup.WorkSetting != (model.WorkSetting{}) || !backup.HolidaySyncedAt.IsZero() {
+		t.Errorf("after reset = %+v", backup)
+	}
+
+	// IDs start over
+	category := &model.WorkOption{Name: "New"}
+	if err := db.CreateCategory(category); err != nil || category.ID != "00000000000000000001" {
+		t.Errorf("first ID after reset = %q, %v", category.ID, err)
+	}
+}

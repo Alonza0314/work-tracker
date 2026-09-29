@@ -223,3 +223,19 @@ holiday:
 ```
 
 A failed sync is only logged; the calendar keeps its last data.
+
+### Backup, restore and reset
+
+Admins open **System** in the sidebar (above their name):
+
+- **Download backup**: `GET /api/system/backup` returns `work-tracker-backup_<time>.zip`. It contains a `manifest.json` (`{"app": "work-tracker", "version": 1, "createdAt": ...}`) and one JSON file per bucket:
+  - `account.json`, `category.json`, `project.json`, `work.json`, `todo.json` and `holiday.json` are arrays of the records described above.
+  - `setting.json` is `{"work": <setting.work>, "holidaySyncedAt": <time>}`.
+
+  The format does not depend on the database type. Accounts include their password hashes, so keep backups safe.
+- **Restore**: `POST /api/system/restore` with the zip in the multipart field `file` (at most 50 MB). It replaces all data in one transaction.
+  - A file that is not a Work Tracker backup (wrong manifest, newer version, broken JSON, duplicate accounts) is refused and nothing changes.
+  - The config admin is re-applied afterwards, and new IDs continue after the restored ones.
+- **Reset**: `POST /api/system/reset` with `{"confirm": "RESET"}`. It deletes all data like a fresh install: only the config admin is left, and the government holidays sync again.
+
+In the UI, restore and reset need `RESTORE` / `RESET` typed in, and they sign everyone out.

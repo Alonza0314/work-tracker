@@ -20,7 +20,7 @@ export default function AppLayout() {
   return (
     <div className={styles.shell}>
       <NotificationContainer errors={errors} successes={successes} onClose={removeNotification} />
-      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} onError={addError} />
       <div className={styles.main}>
         <Topbar title={title} onMenuClick={() => setSidebarOpen(true)} onError={addError} />
         <main className={styles.content}>

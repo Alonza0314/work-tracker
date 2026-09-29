@@ -29,6 +29,7 @@ type DbIf interface {
 	TodoDbIf
 	SettingDbIf
 	HolidayDbIf
+	BackupDbIf
 
 	Release() error
 }
@@ -106,6 +107,17 @@ type HolidayDbIf interface {
 	// GetHolidaySyncedAt returns the zero time before the first sync.
 	GetHolidaySyncedAt() (time.Time, error)
 	SetHolidaySyncedAt(at time.Time) error
+}
+
+// BackupDbIf moves the whole database in and out as a model.Backup.
+type BackupDbIf interface {
+	// Dump reads every record from one consistent snapshot.
+	Dump() (*model.Backup, error)
+	// Restore replaces all data with backup in one transaction; new IDs
+	// continue after the restored ones.
+	Restore(backup *model.Backup) error
+	// Reset deletes all data in one transaction.
+	Reset() error
 }
 
 func newDb(dbType, dbPath string) (DbIf, error) {

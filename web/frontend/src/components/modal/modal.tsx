@@ -12,6 +12,7 @@ interface ModalProps {
   children: ReactNode
   onSubmit?: () => void
   submitLabel?: string
+  cancelLabel?: string
   submitVariant?: 'primary' | 'danger'
   submitting?: boolean
 }
@@ -24,6 +25,7 @@ export default function Modal({
   children,
   onSubmit,
   submitLabel,
+  cancelLabel,
   submitVariant = 'primary',
   submitting = false,
 }: ModalProps) {
@@ -58,7 +60,7 @@ export default function Modal({
         </div>
         <div className={styles.footer}>
           <Button variant="secondary" onClick={onClose} disabled={submitting}>
-            {t('common.cancel')}
+            {cancelLabel ?? t('common.cancel')}
           </Button>
           {onSubmit && (
             <Button type="submit" variant={submitVariant} disabled={submitting}>

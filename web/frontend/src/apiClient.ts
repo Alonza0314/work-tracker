@@ -1,6 +1,6 @@
 import axios from 'axios'
 import { Configuration, DefaultApi } from './api'
-import { clearToken, getToken, markSessionExpired } from './auth/session'
+import { clearToken, getToken, leaveToLogin } from './auth/session'
 
 // The backend serves this app and the API from the same origin, so the API is
 // wherever the page is (any host, port or reverse proxy). `yarn dev` proxies
@@ -12,17 +12,17 @@ const axiosInstance = axios.create()
 // a 401 here means the JWT itself is gone/expired (not a bad login attempt -
 // that's handled by the caller's own catch), so the session is unrecoverable
 // and the only sane move is to drop the stale token and send the user back
-// to /login, where it is told to sign in again. Module-level, so this can't
+// to /login, where it is told the session expired. Module-level, so this can't
 // use react-router's useNavigate - a hard redirect is the simplest way to force
 // every component back to a clean, logged-out state.
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      clearToken()
       if (window.location.pathname !== '/login') {
-        markSessionExpired()
-        window.location.assign('/login')
+        leaveToLogin('expired')
+      } else {
+        clearToken()
       }
     }
     return Promise.reject(error)

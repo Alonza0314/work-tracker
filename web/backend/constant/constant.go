@@ -66,3 +66,12 @@ const (
 	// days checked for missing entries, ending at the client's yesterday
 	WORK_MISSING_DAYS = 30
 )
+
+// backup
+const (
+	BACKUP_APP     = "work-tracker"
+	BACKUP_VERSION = 1
+
+	// the text a reset request must carry
+	RESET_CONFIRM = "RESET"
+)

@@ -23,6 +23,7 @@ docs/LoginResponse.md
 docs/MessageResponse.md
 docs/MissingEntriesResponse.md
 docs/MissingMember.md
+docs/ResetRequest.md
 docs/Role.md
 docs/SaveHolidayRequest.md
 docs/SaveWorkEntryRequest.md

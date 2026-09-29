@@ -182,6 +182,7 @@ func addServices(router *gin.Engine, b *backend) {
 	addRoutes(adminGroup, b.getUserRoutes())
 	addRoutes(adminGroup, b.getWorkSettingRoutes())
 	addRoutes(adminGroup, b.getHolidaySettingRoutes())
+	addRoutes(adminGroup, b.getSystemRoutes())
 }
 
 func addRoutes(group *gin.RouterGroup, routes util.Routes) {

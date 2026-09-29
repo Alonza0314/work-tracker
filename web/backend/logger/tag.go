@@ -5,6 +5,7 @@ const (
 	ACC_LOG  = "ACC"
 	USR_LOG  = "USR"
 	WRK_LOG  = "WRK"
+	SYS_LOG  = "SYS"
 	BCK_LOG  = "BCK"
 	PROC_LOG = "PROC"
 	API_LOG  = "API"
