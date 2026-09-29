@@ -1,50 +1,100 @@
 .button {
-  padding: 0.75rem 1.5rem;
-  border-radius: 8px;
-  font-weight: 500;
-  font-size: 0.875rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
-  border: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  line-height: 1.25rem;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--duration) var(--ease),
+    border-color var(--duration) var(--ease),
+    box-shadow var(--duration) var(--ease),
+    color var(--duration) var(--ease);
+}
+
+.button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
 }
 
 .button:disabled {
-  opacity: 0.6;
+  opacity: 0.55;
   cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
+}
+
+.icon {
+  display: inline-flex;
+}
+
+.icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.sm {
+  height: 32px;
+  padding: 0 0.75rem;
+  font-size: var(--text-sm);
+}
+
+.md {
+  height: 38px;
+  padding: 0 1rem;
+  font-size: var(--text-base);
+}
+
+.lg {
+  height: 44px;
+  padding: 0 1.25rem;
+  font-size: var(--text-md);
+}
+
+.fullWidth {
+  width: 100%;
 }
 
 .primary {
-  background: linear-gradient(135deg, #4f46e5, #9333ea);
-  box-shadow: 0 4px 12px rgba(147, 51, 234, 0.25);
-  border: none;
-  color: white;
+  background: var(--color-primary);
+  color: #ffffff;
+  box-shadow: var(--shadow-xs), inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
-.primary:hover {
-  background: linear-gradient(135deg, #4338ca, #7e22ce);
-  box-shadow: 0 6px 16px rgba(147, 51, 234, 0.4);
-  transform: translateY(-1px);
+.primary:hover:not(:disabled) {
+  background: var(--color-primary-hover);
 }
 
 .secondary {
-  background-color: #e2e8f0;
-  color: #1e293b;
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  color: var(--gray-700);
+  box-shadow: var(--shadow-xs);
 }
 
-.secondary:hover {
-  background-color: #cbd5e1;
+.secondary:hover:not(:disabled) {
+  background: var(--gray-50);
+  border-color: var(--color-border-strong);
+}
+
+.ghost {
+  background: transparent;
+  color: var(--gray-600);
+}
+
+.ghost:hover:not(:disabled) {
+  background: var(--gray-100);
+  color: var(--gray-900);
 }
 
 .danger {
-  background-color: #dc2626;
-  color: white;
+  background: var(--danger-600);
+  color: #ffffff;
+  box-shadow: var(--shadow-xs);
 }
 
-.danger:hover {
-  background-color: #b91c1c;
+.danger:hover:not(:disabled) {
+  background: var(--danger-700);
 }

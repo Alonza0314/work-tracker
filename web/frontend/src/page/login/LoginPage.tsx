@@ -1,15 +1,21 @@
 import { useState, type FormEvent } from 'react'
+import { Eye, EyeOff, Lock, User } from 'lucide-react'
 import Button from '../../components/button/button'
+import Logo from '../../components/logo/Logo'
+import LanguageSwitcher from '../../components/languageSwitcher/LanguageSwitcher'
 import NotificationContainer from '../../components/notifications/NotificationContainer'
 import { useNotifications } from '../../hooks/useNotifications'
+import { useI18n } from '../../i18n/useI18n'
 import { api, extractErrorMessage } from '../../apiClient'
 import { useNavigate } from 'react-router-dom'
 import styles from './login-page.module.css'
 
 export default function LoginPage() {
   const navigate = useNavigate()
+  const { t } = useI18n()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
   const { errors, successes, addError, addSuccess, removeNotification } = useNotifications()
@@ -22,10 +28,11 @@ export default function LoginPage() {
       const response = await api.login({ username, password })
       const token = response.data.token || ''
       localStorage.setItem('token', token)
-      addSuccess(response.data.message || 'Login successful')
+      localStorage.setItem('username', username)
+      addSuccess(response.data.message || t('login.success'))
       navigate('/', { replace: true })
     } catch (error: unknown) {
-      addError(extractErrorMessage(error, 'Login failed'))
+      addError(extractErrorMessage(error, t('login.failed')))
     } finally {
       setIsLoading(false)
     }
@@ -39,43 +46,77 @@ export default function LoginPage() {
         onClose={removeNotification}
       />
 
-      <div className={styles.heroGlow} aria-hidden="true" />
+      <aside className={styles.hero}>
+        <div className={styles.heroGrid} aria-hidden="true" />
+        <p className={styles.heroTitle}>{t('app.name')}</p>
+      </aside>
 
-      <main className={styles.card}>
-        <div className={styles.headerBlock}>
-          <p className={styles.kicker}>Work Tracker</p>
-          <h1 className={styles.title}>Welcome back</h1>
-          <p className={styles.subtitle}>Sign in to continue to Work Tracker.</p>
+      <main className={styles.formPane}>
+        <div className={styles.formTopbar}>
+          <div className={styles.mobileBrand}>
+            <Logo size={28} />
+            <span>{t('app.name')}</span>
+          </div>
+          <LanguageSwitcher />
         </div>
 
-        <form className={styles.form} onSubmit={handleSubmit}>
-          <label className={styles.label} htmlFor="username">Username</label>
-          <input
-            id="username"
-            className={styles.input}
-            value={username}
-            onChange={(event) => setUsername(event.target.value)}
-            autoComplete="username"
-            required
-          />
-
-          <label className={styles.label} htmlFor="password">Password</label>
-          <input
-            id="password"
-            type="password"
-            className={styles.input}
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            autoComplete="current-password"
-            required
-          />
-
-          <div className={styles.actionRow}>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? 'Signing in...' : 'Sign In'}
-            </Button>
+        <div className={styles.formWrap}>
+          <div className={styles.headerBlock}>
+            <h2 className={styles.title}>{t('login.title')}</h2>
+            <p className={styles.subtitle}>{t('login.subtitle')}</p>
           </div>
-        </form>
+
+          <form className={styles.form} onSubmit={handleSubmit}>
+            <div className={styles.field}>
+              <label className={styles.label} htmlFor="username">{t('login.username')}</label>
+              <div className={styles.inputWrap}>
+                <User size={16} className={styles.inputIcon} aria-hidden="true" />
+                <input
+                  id="username"
+                  className={styles.input}
+                  value={username}
+                  onChange={(event) => setUsername(event.target.value)}
+                  placeholder={t('login.usernamePlaceholder')}
+                  autoComplete="username"
+                  autoFocus
+                  required
+                />
+              </div>
+            </div>
+
+            <div className={styles.field}>
+              <label className={styles.label} htmlFor="password">{t('login.password')}</label>
+              <div className={styles.inputWrap}>
+                <Lock size={16} className={styles.inputIcon} aria-hidden="true" />
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  className={styles.input}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder={t('login.passwordPlaceholder')}
+                  autoComplete="current-password"
+                  required
+                />
+                <button
+                  type="button"
+                  className={styles.revealButton}
+                  onClick={() => setShowPassword((value) => !value)}
+                  aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
+                  aria-pressed={showPassword}
+                >
+                  {showPassword ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
+                </button>
+              </div>
+            </div>
+
+            <Button type="submit" size="lg" fullWidth disabled={isLoading}>
+              {isLoading && <span className={styles.spinner} aria-hidden="true" />}
+              {isLoading ? t('login.submitting') : t('login.submit')}
+            </Button>
+          </form>
+
+        </div>
       </main>
     </div>
   )

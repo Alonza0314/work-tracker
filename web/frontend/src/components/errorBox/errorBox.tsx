@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { CircleAlert, X } from 'lucide-react'
 import styles from './errorBox.module.css'
 
 interface ErrorMessage {
@@ -33,12 +34,14 @@ function SingleError({
 
   return (
     <div 
-      className={styles.errorBox} 
+      className={styles.errorBox}
+      role="alert"
       style={{ 
-        top: `${(index * 4.5) + 1}rem`,
+        top: `${(index * 4.75) + 1.25}rem`,
         animationDelay: `${index * 0.05}s`
       }}
     >
+      <span className={styles.icon}><CircleAlert size={18} aria-hidden="true" /></span>
       <span className={styles.message}>{error.message}</span>
       <button 
         type="button" 
@@ -46,7 +49,7 @@ function SingleError({
         onClick={() => onClose(error.id)}
         aria-label="Close error message"
       >
-        x
+        <X size={16} aria-hidden="true" />
       </button>
     </div>
   )

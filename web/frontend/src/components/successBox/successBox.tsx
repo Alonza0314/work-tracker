@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { CircleCheck, X } from 'lucide-react'
 import styles from './successBox.module.css'
 
 interface SuccessMessage {
@@ -33,12 +34,14 @@ function SingleSuccess({
 
   return (
     <div 
-      className={styles.successBox} 
+      className={styles.successBox}
+      role="status"
       style={{ 
-        top: `${(index * 4.5) + 1}rem`,
+        top: `${(index * 4.75) + 1.25}rem`,
         animationDelay: `${index * 0.05}s`
       }}
     >
+      <span className={styles.icon}><CircleCheck size={18} aria-hidden="true" /></span>
       <span className={styles.message}>{success.message}</span>
       <button 
         type="button" 
@@ -46,7 +49,7 @@ function SingleSuccess({
         onClick={() => onClose(success.id)}
         aria-label="Close success message"
       >
-        x
+        <X size={16} aria-hidden="true" />
       </button>
     </div>
   )

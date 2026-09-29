@@ -1,5 +1,6 @@
 import LoginPage from './page/login/LoginPage'
 import { Navigate, Route, Routes } from 'react-router-dom'
+import AppLayout from './components/layout/AppLayout'
 import HomePage from './page/home/HomePage'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -16,13 +17,14 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route
-        path="/"
         element={(
           <RequireAuth>
-            <HomePage />
+            <AppLayout />
           </RequireAuth>
         )}
-      />
+      >
+        <Route path="/" element={<HomePage />} />
+      </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
