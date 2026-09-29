@@ -1,5 +1,7 @@
 # work-tracker
 
+![logo](./docs/images/wt-logo.png)
+
 Work Tracker (wt) — a full-stack website (React + go) for tracking work.
 
 ## Develop Environment
