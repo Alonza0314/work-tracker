@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { WorkMember, WorkRecordListResponse } from '../../api'
 import { api } from '../../apiClient'
 import Button from '../../components/button/button'
@@ -8,7 +8,7 @@ import Panel from '../../components/panel/Panel'
 import WeekNavigator from '../../components/weekNavigator/WeekNavigator'
 import { useNotifications } from '../../hooks/useNotifications'
 import { useI18n } from '../../i18n/useI18n'
-import { today, weekEnd, weekStart } from '../../work/format'
+import { parseDate, quarterOf, quarterRange, today, weekEnd, weekStart, type Quarter } from '../../work/format'
 import { useWork } from '../../work/useWork'
 import WorkRecordTable from './WorkRecordTable'
 import styles from './work.module.css'
@@ -21,16 +21,33 @@ interface Filters {
 
 const EMPTY_FILTERS: Filters = { account: '', categoryId: '', projectId: '' }
 
+type PeriodMode = 'week' | 'quarter'
+
+const QUARTERS: Quarter[] = [1, 2, 3, 4]
+
 export default function AllWorkPage() {
-  const { t } = useI18n()
-  const { categories, projects } = useWork()
+  const { t, locale } = useI18n()
+  const { categories, projects, startDate } = useWork()
   const { errors, successes, addError, removeNotification } = useNotifications()
 
   const [members, setMembers] = useState<WorkMember[]>([])
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
+  const [mode, setMode] = useState<PeriodMode>('week')
   // Monday of the shown week
   const [week, setWeek] = useState(() => weekStart(today()))
+  const [year, setYear] = useState(() => parseDate(today()).getFullYear())
+  const [quarter, setQuarter] = useState<Quarter>(() => quarterOf(today()))
   const [result, setResult] = useState<WorkRecordListResponse | null>(null)
+
+  const range = useMemo(
+    () => (mode === 'week' ? { from: week, to: weekEnd(week) } : quarterRange(year, quarter)),
+    [mode, week, year, quarter],
+  )
+
+  // from the work start year (or two years back) to this year
+  const currentYear = parseDate(today()).getFullYear()
+  const firstYear = startDate ? Math.min(parseDate(startDate).getFullYear(), currentYear) : currentYear - 2
+  const years = Array.from({ length: currentYear - firstYear + 1 }, (_, i) => currentYear - i)
 
   useEffect(() => {
     api.listWorkMembers()
@@ -42,8 +59,8 @@ export default function AllWorkPage() {
     try {
       const { account, categoryId, projectId } = filters
       const response = await api.listAllWorkRecords(
-        week,
-        weekEnd(week),
+        range.from,
+        range.to,
         account || undefined,
         categoryId || undefined,
         projectId || undefined,
@@ -52,7 +69,7 @@ export default function AllWorkPage() {
     } catch {
       addError(t('work.loadFailed'))
     }
-  }, [addError, filters, week, t])
+  }, [addError, filters, range, t])
 
   useEffect(() => {
     void loadRecords()
@@ -88,8 +105,50 @@ export default function AllWorkPage() {
         )}
         flush
       >
-        <div className={styles.weekBar}>
-          <WeekNavigator start={week} onChange={setWeek} />
+        <div className={styles.periodBar}>
+          <div className={styles.segmented} role="group" aria-label={t('period.label')}>
+            {(['week', 'quarter'] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                className={mode === option ? styles.segmentActive : styles.segment}
+                aria-pressed={mode === option}
+                onClick={() => setMode(option)}
+              >
+                {t(option === 'week' ? 'period.week' : 'period.quarter')}
+              </button>
+            ))}
+          </div>
+
+          {mode === 'week' ? (
+            <WeekNavigator start={week} onChange={setWeek} />
+          ) : (
+            <div className={styles.quarterPicker}>
+              <SelectInput value={year} onChange={(event) => setYear(Number(event.target.value))} aria-label={t('period.year')}>
+                {years.map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </SelectInput>
+              <div className={styles.segmented} role="group" aria-label={t('period.quarter')}>
+                {QUARTERS.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    className={quarter === option ? styles.segmentActive : styles.segment}
+                    aria-pressed={quarter === option}
+                    onClick={() => setQuarter(option)}
+                  >
+                    Q{option}
+                  </button>
+                ))}
+              </div>
+              <span className={styles.periodRange}>
+                {new Intl.DateTimeFormat(locale, { month: '2-digit', day: '2-digit' }).format(parseDate(range.from))}
+                {' – '}
+                {new Intl.DateTimeFormat(locale, { month: '2-digit', day: '2-digit' }).format(parseDate(range.to))}
+              </span>
+            </div>
+          )}
         </div>
         <div className={styles.filters}>
           <Field id="filter-member" label={t('work.member')}>

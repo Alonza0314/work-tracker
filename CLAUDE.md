@@ -108,7 +108,7 @@ Request flow: `main.go` → `cmd/wt.go` (cobra; loads YAML config via `util.Load
   - Everyone's records (`/api/work-records`, `/api/work/members`) are allowed for admins, or for everyone when `setting.work.allowViewAll` is on (`checkViewAll`).
 - **Listing and completion**:
   - Record lists take a required inclusive `from`/`to` date range and return every matching record (no paging), sorted in the processor (date desc, then createdAt desc), with `total` and `totalHours`.
-  - The frontend always asks for one week, Monday to Sunday: `WeekNavigator` plus `weekStart`/`weekEnd` in `work/format.ts`.
+  - My Work asks for one week, Monday to Sunday (`WeekNavigator` plus `weekStart`/`weekEnd` in `work/format.ts`). The everyone's table can switch between a week and a quarter of a chosen year (`quarterRange`); the year list starts at the work start date's year, or two years back when it is unset.
   - Completing a todo uses the date sent by the client (its "today"), so the user's time zone decides the day.
 
 ### Holidays and the weekly target

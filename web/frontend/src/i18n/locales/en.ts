@@ -219,6 +219,10 @@ const en = {
   'settings.start.clear': 'Clear',
   'missing.fromStart': ' Counted from the work start date.',
   'login.expired': 'Your session has expired. Please sign in again.',
+  'period.label': 'Period',
+  'period.week': 'Week',
+  'period.quarter': 'Quarter',
+  'period.year': 'Year',
 } as const
 
 export type MessageKey = keyof typeof en

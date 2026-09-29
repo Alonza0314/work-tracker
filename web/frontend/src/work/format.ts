@@ -34,6 +34,20 @@ export function weekEnd(start: string): string {
   return addDays(start, 6)
 }
 
+export type Quarter = 1 | 2 | 3 | 4
+
+export function quarterOf(date: string): Quarter {
+  return (Math.floor((parseDate(date).getMonth()) / 3) + 1) as Quarter
+}
+
+// the inclusive YYYY-MM-DD range of a quarter, e.g. Q2 2026 = 04-01..06-30
+export function quarterRange(year: number, quarter: Quarter): { from: string, to: string } {
+  const firstMonth = (quarter - 1) * 3
+  const from = toDateString(new Date(year, firstMonth, 1))
+  const to = toDateString(new Date(year, firstMonth + 3, 0))
+  return { from, to }
+}
+
 export function optionName(options: WorkOption[], id: string): string {
   return options.find((option) => option.id === id)?.name ?? '—'
 }

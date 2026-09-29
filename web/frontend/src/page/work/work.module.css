@@ -167,13 +167,6 @@
 
 /* everyone's table: week bar and filters */
 
-.weekBar {
-  display: flex;
-  justify-content: center;
-  padding: 0.75rem 1.25rem;
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-surface-muted);
-}
 
 .filters {
   display: grid;
@@ -516,4 +509,67 @@
   gap: 0.5rem;
   flex-shrink: 0;
   width: 260px;
+}
+
+/* everyone's table: period (week / quarter) */
+
+.periodBar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-muted);
+}
+
+.segmented {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.segment,
+.segmentActive {
+  height: 28px;
+  padding: 0 0.875rem;
+  border: 0;
+  border-radius: calc(var(--radius-md) - 2px);
+  background: transparent;
+  color: var(--gray-600);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--duration) var(--ease), color var(--duration) var(--ease);
+}
+
+.segment:hover {
+  background: var(--gray-50);
+  color: var(--color-text);
+}
+
+.segmentActive {
+  background: var(--color-primary);
+  color: #ffffff;
+}
+
+.quarterPicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.quarterPicker select {
+  width: 100px;
+  height: 34px;
+}
+
+.periodRange {
+  min-width: 110px;
+  color: var(--color-text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }

@@ -219,6 +219,10 @@ const zhTW: Messages = {
   'settings.start.clear': '清除',
   'missing.fromStart': '自工作表開始日期起計算。',
   'login.expired': '登入已逾時，請重新登入。',
+  'period.label': '期間',
+  'period.week': '週',
+  'period.quarter': '季',
+  'period.year': '年度',
 }
 
 export default zhTW
