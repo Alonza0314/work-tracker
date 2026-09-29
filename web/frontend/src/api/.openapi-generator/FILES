@@ -21,6 +21,8 @@ docs/ListUsersResponse.md
 docs/LoginRequest.md
 docs/LoginResponse.md
 docs/MessageResponse.md
+docs/MissingEntriesResponse.md
+docs/MissingMember.md
 docs/Role.md
 docs/SaveHolidayRequest.md
 docs/SaveWorkEntryRequest.md

@@ -45,7 +45,7 @@ Every new endpoint goes through all of these steps. The frontend never calls the
    `src/apiClient.ts` handles the rest:
    - It builds a single `DefaultApi` with `basePath` = `VITE_API_BASE_URL` or `<protocol>//<host>:8888`. The `servers` URL in openapi.yaml is ignored.
    - It supplies the bearer token from `localStorage.token`.
-   - On any 401 it clears the token and hard-redirects to `/login`.
+   - On any 401 outside `/login` it clears the token, marks the session as expired (`markSessionExpired`, in sessionStorage) and hard-redirects to `/login`, which then shows a "sign in again" notice once (`takeSessionExpired`). A wrong password on the login page is a 401 too, but it is not marked.
 
 ## Backend architecture (`web/backend`, Go module name `backend`)
 
@@ -122,6 +122,14 @@ Request flow: `main.go` → `cmd/wt.go` (cobra; loads YAML config via `util.Load
   - A missing next year (404) is skipped; other failures are only logged (the admin sync button answers 502).
   - Tests serve a fake calendar with `httptest` and set `p.now`.
 
+### Missed entries
+
+- `ListMissingEntries` (`/api/work/missing?to=<client yesterday>`) checks the `WORK_MISSING_DAYS` (30) days ending at `to`, but starts no earlier than the admin-set work start date (`WorkSetting.StartDate`).
+  - It covers every account except the system admin.
+  - A workday (same `workdayOf` rule as the weekly target) counts as filled once it has at least one work record; todos don't count.
+  - Days before an account's `createdAt` are skipped.
+- Permission is `checkViewAll`, as for everyone's records. The home page shows it (`MissingPanel`) to whoever `canViewAll`.
+
 ### Backend coding style (follow it exactly)
 
 - **Constructors**: `NewXxx(ie *XxxIE) *Xxx`, where `XxxIE` is an exported input struct (unexported `xxxIE` for package-internal types). Config sections also use the `IE` suffix.
@@ -143,7 +151,7 @@ Request flow: `main.go` → `cmd/wt.go` (cobra; loads YAML config via `util.Load
   - Admin-only pages are also wrapped in `<RequireAdmin>`.
   - Sidebar entries come from `components/layout/navigation.ts`, which also supplies the topbar title. An entry's `access` is `'admin'`, `'viewAll'` (admins or `allowViewAll`), or everyone.
   - `<RequireViewAll>` guards the everyone's table and waits for `WorkProvider` to load before deciding.
-- **Home** (`page/home/HomePage.tsx`): the signed-in user's week built from `getWeekSummary`: KPI cards, a progress meter and a per-day column chart (8-hour target ticks, days off shaded). The chart is plain HTML/CSS, with a screen-reader table of the same numbers.
+- **Home** (`page/home/HomePage.tsx`): the signed-in user's week built from `getWeekSummary`: KPI cards, a progress meter and a per-day column chart (8-hour target ticks, days off shaded). The chart is plain HTML/CSS, with a screen-reader table of the same numbers. Below it, admins (or everyone when `allowViewAll` is on) get `MissingPanel`.
 - **Work** (`work/`): `WorkProvider` (inside `RequireAuth`) loads `getWorkOptions` once. `useWork()` returns `{ categories, projects, allowViewAll, canViewAll, loaded, reload }`; call `reload()` after changing options or settings.
   - `work/format.ts` has `today()` (local `YYYY-MM-DD`), `optionName` and `selectableOptions`.
   - The pages are in `page/work/`.

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Eye, EyeOff, Lock, User } from 'lucide-react'
+import { Clock, Eye, EyeOff, Lock, User } from 'lucide-react'
 import Button from '../../components/button/button'
 import Logo from '../../components/logo/Logo'
 import LanguageSwitcher from '../../components/languageSwitcher/LanguageSwitcher'
@@ -8,6 +8,7 @@ import { useNotifications } from '../../hooks/useNotifications'
 import { useI18n } from '../../i18n/useI18n'
 import { api, errorStatus } from '../../apiClient'
 import { useAuth } from '../../auth/useAuth'
+import { takeSessionExpired } from '../../auth/session'
 import { Navigate, useNavigate } from 'react-router-dom'
 import styles from './login-page.module.css'
 
@@ -19,6 +20,8 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  // read once: sent here because the session expired
+  const [expired] = useState(takeSessionExpired)
 
   const { errors, successes, addError, removeNotification } = useNotifications()
 
@@ -67,6 +70,13 @@ export default function LoginPage() {
             <h2 className={styles.title}>{t('login.title')}</h2>
             <p className={styles.subtitle}>{t('login.subtitle')}</p>
           </div>
+
+          {expired && (
+            <p className={styles.expired} role="status">
+              <Clock size={16} aria-hidden="true" />
+              {t('login.expired')}
+            </p>
+          )}
 
           <form className={styles.form} onSubmit={handleSubmit}>
             <div className={styles.field}>

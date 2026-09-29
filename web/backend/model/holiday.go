@@ -66,3 +66,26 @@ type ResponseWeekSummary struct {
 	DaysOff        int       `json:"daysOff"`
 	Days           []WeekDay `json:"days"`
 }
+
+// RequestMissingEntries checks the WORK_MISSING_DAYS days ending at To (the
+// client's yesterday).
+type RequestMissingEntries struct {
+	To string `form:"to" binding:"required"`
+}
+
+// MissingMember is an account with workdays that have no work record.
+type MissingMember struct {
+	Account      string   `json:"account"`
+	Name         string   `json:"name"`
+	MissingCount int      `json:"missingCount"`
+	MissingDates []string `json:"missingDates"`
+}
+
+type ResponseMissingEntries struct {
+	Message      string          `json:"message"`
+	From         string          `json:"from"`
+	To           string          `json:"to"`
+	Workdays     int             `json:"workdays"`
+	CheckedCount int             `json:"checkedCount"`
+	Members      []MissingMember `json:"members"`
+}

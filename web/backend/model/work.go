@@ -41,8 +41,12 @@ type Todo struct {
 	CreatedAt time.Time `json:"createdAt"`
 }
 
+// WorkSetting holds the work table settings. StartDate (YYYY-MM-DD, empty
+// when unset) is when the team started logging: missed entries are not
+// checked before it.
 type WorkSetting struct {
-	AllowViewAll bool `json:"allowViewAll"`
+	AllowViewAll bool   `json:"allowViewAll"`
+	StartDate    string `json:"startDate,omitempty"`
 }
 
 // WorkRecordFilter fields are optional; empty fields match everything.
@@ -65,6 +69,7 @@ type ResponseWorkOptions struct {
 	Categories   []WorkOption `json:"categories"`
 	Projects     []WorkOption `json:"projects"`
 	AllowViewAll bool         `json:"allowViewAll"`
+	StartDate    string       `json:"startDate,omitempty"`
 }
 
 type RequestCreateWorkOption struct {
@@ -90,13 +95,17 @@ type ResponseDeleteWorkOption struct {
 	Cleared int    `json:"cleared"`
 }
 
+// RequestUpdateWorkSetting fields are optional; only non-nil fields are
+// applied. An empty StartDate clears it.
 type RequestUpdateWorkSetting struct {
-	AllowViewAll *bool `json:"allowViewAll" binding:"required"`
+	AllowViewAll *bool   `json:"allowViewAll"`
+	StartDate    *string `json:"startDate"`
 }
 
 type ResponseWorkSetting struct {
 	Message      string `json:"message"`
 	AllowViewAll bool   `json:"allowViewAll"`
+	StartDate    string `json:"startDate,omitempty"`
 }
 
 // RequestSaveWorkEntry creates or fully replaces a work record or a todo.

@@ -97,6 +97,7 @@ Users of the system. There is no self-registration: users are added by an admin 
 | `role` | string | `admin` or `default`. |
 | `i18n` | string | UI language of the user: `zh-TW` or `en`. |
 | `isSystem` | bool | `true` only for the system admin defined by `backend.username` / `backend.password` in the config. |
+| `createdAt` | string | RFC 3339 creation time. Days before it are not reported as missed entries. It is the zero time (`0001-01-01T00:00:00Z`) for accounts created before this field existed; those are checked over the whole range. |
 
 Example value:
 
@@ -187,10 +188,11 @@ System-wide settings.
 
 | Field | Type | Description |
 | - | - | - |
-| `allowViewAll` | bool | Whether every user can view everyone's work table. Admins can always view it. Defaults to `false` when the key is missing. |
+| `allowViewAll` | bool | Whether every user can view everyone's work table (and the missed-entries report). Admins can always view it. Defaults to `false` when the key is missing. |
+| `startDate` | string | Optional `YYYY-MM-DD` date when the team started logging. The missed-entries report never checks days before it: it covers the 30 days up to yesterday, or less while the start date is within those 30 days. Omitted when unset. |
 
 ```json
-{ "allowViewAll": false }
+{ "allowViewAll": false, "startDate": "2026-09-01" }
 ```
 
 #### `holiday`

@@ -5,6 +5,7 @@ import { api, errorStatus } from '../../apiClient'
 import Button from '../../components/button/button'
 import ColorPicker from '../../components/colorPicker/ColorPicker'
 import { Field, TextInput } from '../../components/field/Field'
+import { today } from '../../work/format'
 import Modal from '../../components/modal/modal'
 import NotificationContainer from '../../components/notifications/NotificationContainer'
 import Panel from '../../components/panel/Panel'
@@ -37,14 +38,14 @@ const PROJECT_API: OptionApi = {
 
 export default function WorkSettingsPage() {
   const { t } = useI18n()
-  const { categories, projects, allowViewAll, reload } = useWork()
+  const { categories, projects, allowViewAll, startDate, reload } = useWork()
   const { errors, successes, addError, addSuccess, removeNotification } = useNotifications()
   const [savingSetting, setSavingSetting] = useState(false)
 
-  async function handleAllowViewAll(checked: boolean) {
+  async function saveSetting(change: { allowViewAll?: boolean, startDate?: string }) {
     setSavingSetting(true)
     try {
-      await api.updateWorkSetting({ allowViewAll: checked })
+      await api.updateWorkSetting(change)
       await reload()
       addSuccess(t('settings.saved'))
     } catch {
@@ -58,13 +59,42 @@ export default function WorkSettingsPage() {
     <div className={styles.page}>
       <NotificationContainer errors={errors} successes={successes} onClose={removeNotification} />
 
-      <Panel title={t('settings.view.title')} description={t('settings.view.desc')}>
-        <Switch
-          checked={allowViewAll}
-          onChange={handleAllowViewAll}
-          disabled={savingSetting}
-          label={t('settings.view.label')}
-        />
+      <Panel title={t('settings.general.title')}>
+        <div className={styles.settingRows}>
+          <div className={styles.settingRow}>
+            <div>
+              <p className={styles.settingLabel}>{t('settings.view.label')}</p>
+              <p className={styles.settingDesc}>{t('settings.view.desc')}</p>
+            </div>
+            <Switch
+              checked={allowViewAll}
+              onChange={(checked) => void saveSetting({ allowViewAll: checked })}
+              disabled={savingSetting}
+              ariaLabel={t('settings.view.label')}
+            />
+          </div>
+          <div className={styles.settingRow}>
+            <div>
+              <p className={styles.settingLabel}>{t('settings.start.label')}</p>
+              <p className={styles.settingDesc}>{t('settings.start.desc')}</p>
+            </div>
+            <div className={styles.settingControl}>
+              <TextInput
+                type="date"
+                value={startDate}
+                max={today()}
+                disabled={savingSetting}
+                onChange={(event) => void saveSetting({ startDate: event.target.value })}
+                aria-label={t('settings.start.label')}
+              />
+              {startDate && (
+                <Button variant="ghost" size="sm" disabled={savingSetting} onClick={() => void saveSetting({ startDate: '' })}>
+                  {t('settings.start.clear')}
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
       </Panel>
 
       <div className={styles.settingsGrid}>

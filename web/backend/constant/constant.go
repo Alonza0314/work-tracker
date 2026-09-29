@@ -62,4 +62,7 @@ const (
 	HOLIDAY_SOURCE_MANUAL = "manual" // set by an admin, wins over gov
 
 	WORK_DAILY_HOURS = 8
+
+	// days checked for missing entries, ending at the client's yesterday
+	WORK_MISSING_DAYS = 30
 )

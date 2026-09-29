@@ -11,6 +11,7 @@ export default function WorkProvider({ children }: { children: ReactNode }) {
   const [categories, setCategories] = useState<WorkOption[]>([])
   const [projects, setProjects] = useState<WorkOption[]>([])
   const [allowViewAll, setAllowViewAll] = useState(false)
+  const [startDate, setStartDate] = useState('')
   const [loaded, setLoaded] = useState(false)
 
   const reload = useCallback(async () => {
@@ -18,6 +19,7 @@ export default function WorkProvider({ children }: { children: ReactNode }) {
     setCategories(response.data.categories)
     setProjects(response.data.projects)
     setAllowViewAll(response.data.allowViewAll)
+    setStartDate(response.data.startDate ?? '')
   }, [])
 
   useEffect(() => {
@@ -32,10 +34,11 @@ export default function WorkProvider({ children }: { children: ReactNode }) {
     categories,
     projects,
     allowViewAll,
+    startDate,
     loaded,
     canViewAll: isAdmin || allowViewAll,
     reload,
-  }), [categories, projects, allowViewAll, loaded, isAdmin, reload])
+  }), [categories, projects, allowViewAll, startDate, loaded, isAdmin, reload])
 
   return <WorkContext.Provider value={value}>{children}</WorkContext.Provider>
 }

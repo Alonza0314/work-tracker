@@ -7,6 +7,7 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **message** | **string** |  | [default to undefined]
 **allowViewAll** | **boolean** |  | [default to undefined]
+**startDate** | **string** |  | [optional] [default to undefined]
 
 ## Example
 
@@ -16,6 +17,7 @@ import { WorkSettingResponse } from './api';
 const instance: WorkSettingResponse = {
     message,
     allowViewAll,
+    startDate,
 };
 ```
 

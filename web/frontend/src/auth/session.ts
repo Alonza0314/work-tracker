@@ -1,6 +1,8 @@
 import { I18n, Role } from '../api'
 
 const TOKEN_STORAGE_KEY = 'token'
+// set when an expired session sends the user back to /login
+const SESSION_EXPIRED_KEY = 'sessionExpired'
 
 export interface Session {
   token: string
@@ -21,6 +23,17 @@ export function setToken(token: string): void {
 
 export function clearToken(): void {
   localStorage.removeItem(TOKEN_STORAGE_KEY)
+}
+
+// the login page tells the user to sign in again, once
+export function markSessionExpired(): void {
+  sessionStorage.setItem(SESSION_EXPIRED_KEY, '1')
+}
+
+export function takeSessionExpired(): boolean {
+  const expired = sessionStorage.getItem(SESSION_EXPIRED_KEY) !== null
+  sessionStorage.removeItem(SESSION_EXPIRED_KEY)
+  return expired
 }
 
 function decodeBase64Url(segment: string): string {

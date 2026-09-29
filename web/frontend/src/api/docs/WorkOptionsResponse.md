@@ -9,6 +9,7 @@ Name | Type | Description | Notes
 **categories** | [**Array&lt;WorkOption&gt;**](WorkOption.md) |  | [default to undefined]
 **projects** | [**Array&lt;WorkOption&gt;**](WorkOption.md) |  | [default to undefined]
 **allowViewAll** | **boolean** |  | [default to undefined]
+**startDate** | **string** | Missing when not set. | [optional] [default to undefined]
 
 ## Example
 
@@ -20,6 +21,7 @@ const instance: WorkOptionsResponse = {
     categories,
     projects,
     allowViewAll,
+    startDate,
 };
 ```
 

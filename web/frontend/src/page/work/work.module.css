@@ -480,3 +480,40 @@
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* general settings rows */
+
+.settingRows {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.settingRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.settingRow + .settingRow {
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.settingLabel {
+  font-weight: 500;
+}
+
+.settingDesc {
+  margin-top: 0.125rem;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.settingControl {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  width: 260px;
+}

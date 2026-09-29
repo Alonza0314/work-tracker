@@ -82,6 +82,8 @@ func (p *Processor) InitSystemAdmin() error {
 			Role:     constant.ROLE_ADMIN,
 			I18n:     constant.DEFAULT_I18N,
 			IsSystem: true,
+
+			CreatedAt: p.now(),
 		}); err != nil {
 			return fmt.Errorf("failed to create system admin: %v", err)
 		}
@@ -262,6 +264,8 @@ func (p *Processor) CreateUser(req *model.RequestCreateUser) (*model.ResponseCre
 		Role:     req.Role,
 		I18n:     req.I18n,
 		IsSystem: false,
+
+		CreatedAt: p.now(),
 	}
 	if err := p.CreateAccount(acc); err != nil {
 		if errors.Is(err, context.ErrAccountExists) {

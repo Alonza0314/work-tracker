@@ -22,6 +22,7 @@ All URIs are relative to *http://127.0.0.1:5000*
 |[**getWorkOptions**](#getworkoptions) | **GET** /api/work/options | Get task categories, projects and the work table setting|
 |[**listAllWorkRecords**](#listallworkrecords) | **GET** /api/work-records | List everyone\&#39;s work records|
 |[**listHolidays**](#listholidays) | **GET** /api/holidays | List a year\&#39;s holiday calendar|
+|[**listMissingEntries**](#listmissingentries) | **GET** /api/work/missing | List who missed logging work|
 |[**listMyTodos**](#listmytodos) | **GET** /api/me/todos | List my todos|
 |[**listMyWorkRecords**](#listmyworkrecords) | **GET** /api/me/work-records | List my work records|
 |[**listUsers**](#listusers) | **GET** /api/users | List users (admin)|
@@ -1017,6 +1018,61 @@ const { status, data } = await apiInstance.listHolidays(
 |**200** | OK |  -  |
 |**400** | Bad Request |  -  |
 |**401** | Unauthorized |  -  |
+|**500** | Internal Server Error |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **listMissingEntries**
+> MissingEntriesResponse listMissingEntries()
+
+For everyone but the system admin, the workdays of the 30 days ending at `to` (but not before the work start date) without any work record (todos do not count). Weekends and holidays are skipped, makeup workdays count, and days before an account was created are skipped. Only members with missing days are listed, most missing first. Allowed for admins, and for everyone when `allowViewAll` is on.
+
+### Example
+
+```typescript
+import {
+    DefaultApi,
+    Configuration
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new DefaultApi(configuration);
+
+let to: string; //Last day checked (the client\'s yesterday), YYYY-MM-DD. (default to undefined)
+
+const { status, data } = await apiInstance.listMissingEntries(
+    to
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **to** | [**string**] | Last day checked (the client\&#39;s yesterday), YYYY-MM-DD. | defaults to undefined|
+
+
+### Return type
+
+**MissingEntriesResponse**
+
+### Authorization
+
+[bearerAuth](../README.md#bearerAuth)
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | OK |  -  |
+|**400** | Bad Request |  -  |
+|**401** | Unauthorized |  -  |
+|**403** | Forbidden |  -  |
 |**500** | Internal Server Error |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)

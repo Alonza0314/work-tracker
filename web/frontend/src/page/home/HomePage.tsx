@@ -10,6 +10,8 @@ import StatsCard from '../../components/stats/stats-card'
 import { useNotifications } from '../../hooks/useNotifications'
 import { useI18n } from '../../i18n/useI18n'
 import { parseDate, today, weekStart } from '../../work/format'
+import { useWork } from '../../work/useWork'
+import MissingPanel from './MissingPanel'
 import styles from './home-page.module.css'
 
 // This week at a glance for the signed-in user: how much is logged against
@@ -19,6 +21,7 @@ export default function HomePage() {
   const navigate = useNavigate()
   const { errors, successes, addError, removeNotification } = useNotifications()
   const [summary, setSummary] = useState<WeekSummaryResponse | null>(null)
+  const { canViewAll, loaded } = useWork()
 
   useEffect(() => {
     api.getWeekSummary(weekStart(today()))
@@ -74,6 +77,8 @@ export default function HomePage() {
           </Panel>
         </>
       )}
+
+      {loaded && canViewAll && <MissingPanel onError={addError} />}
     </div>
   )
 }

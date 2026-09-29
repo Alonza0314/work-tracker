@@ -142,6 +142,26 @@ export interface LoginResponse {
 export interface MessageResponse {
     'message'?: string;
 }
+export interface MissingEntriesResponse {
+    'message': string;
+    'from': string;
+    'to': string;
+    /**
+     * Workdays in the range.
+     */
+    'workdays': number;
+    /**
+     * Accounts checked (everyone but the system admin).
+     */
+    'checkedCount': number;
+    'members': Array<MissingMember>;
+}
+export interface MissingMember {
+    'account': string;
+    'name': string;
+    'missingCount': number;
+    'missingDates': Array<string>;
+}
 
 export const Role = {
     Admin: 'admin',
@@ -204,8 +224,15 @@ export interface UpdateWorkOptionRequest {
 }
 
 
+/**
+ * Only the given fields are changed.
+ */
 export interface UpdateWorkSettingRequest {
-    'allowViewAll': boolean;
+    'allowViewAll'?: boolean;
+    /**
+     * When the team started logging (YYYY-MM-DD); missed entries are not checked before it. An empty string clears it.
+     */
+    'startDate'?: string;
 }
 export interface User {
     'account': string;
@@ -278,6 +305,10 @@ export interface WorkOptionsResponse {
     'categories': Array<WorkOption>;
     'projects': Array<WorkOption>;
     'allowViewAll': boolean;
+    /**
+     * Missing when not set.
+     */
+    'startDate'?: string;
 }
 /**
  * Optional fields are empty (\"\" / 0) when not set. Records always have categoryId and hours; todos may not.
@@ -305,6 +336,7 @@ export interface WorkRecordResponse {
 export interface WorkSettingResponse {
     'message': string;
     'allowViewAll': boolean;
+    'startDate'?: string;
 }
 
 /**
@@ -1023,6 +1055,49 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
 
             if (year !== undefined) {
                 localVarQueryParameter['year'] = year;
+            }
+
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * For everyone but the system admin, the workdays of the 30 days ending at `to` (but not before the work start date) without any work record (todos do not count). Weekends and holidays are skipped, makeup workdays count, and days before an account was created are skipped. Only members with missing days are listed, most missing first. Allowed for admins, and for everyone when `allowViewAll` is on.
+         * @summary List who missed logging work
+         * @param {string} to Last day checked (the client\&#39;s yesterday), YYYY-MM-DD.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        listMissingEntries: async (to: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'to' is not null or undefined
+            assertParamExists('listMissingEntries', 'to', to)
+            const localVarPath = `/api/work/missing`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            if (to !== undefined) {
+                localVarQueryParameter['to'] = (to as any instanceof Date) ?
+                    (to as any).toISOString().substring(0,10) :
+                    to;
             }
 
             localVarHeaderParameter['Accept'] = 'application/json';
@@ -1871,6 +1946,19 @@ export const DefaultApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
+         * For everyone but the system admin, the workdays of the 30 days ending at `to` (but not before the work start date) without any work record (todos do not count). Weekends and holidays are skipped, makeup workdays count, and days before an account was created are skipped. Only members with missing days are listed, most missing first. Allowed for admins, and for everyone when `allowViewAll` is on.
+         * @summary List who missed logging work
+         * @param {string} to Last day checked (the client\&#39;s yesterday), YYYY-MM-DD.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async listMissingEntries(to: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<MissingEntriesResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.listMissingEntries(to, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.listMissingEntries']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
          * Sorted by date, earliest first.
          * @summary List my todos
          * @param {*} [options] Override http request option.
@@ -2260,6 +2348,16 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
             return localVarFp.listHolidays(year, options).then((request) => request(axios, basePath));
         },
         /**
+         * For everyone but the system admin, the workdays of the 30 days ending at `to` (but not before the work start date) without any work record (todos do not count). Weekends and holidays are skipped, makeup workdays count, and days before an account was created are skipped. Only members with missing days are listed, most missing first. Allowed for admins, and for everyone when `allowViewAll` is on.
+         * @summary List who missed logging work
+         * @param {string} to Last day checked (the client\&#39;s yesterday), YYYY-MM-DD.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        listMissingEntries(to: string, options?: RawAxiosRequestConfig): AxiosPromise<MissingEntriesResponse> {
+            return localVarFp.listMissingEntries(to, options).then((request) => request(axios, basePath));
+        },
+        /**
          * Sorted by date, earliest first.
          * @summary List my todos
          * @param {*} [options] Override http request option.
@@ -2617,6 +2715,17 @@ export class DefaultApi extends BaseAPI {
      */
     public listHolidays(year: string, options?: RawAxiosRequestConfig) {
         return DefaultApiFp(this.configuration).listHolidays(year, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * For everyone but the system admin, the workdays of the 30 days ending at `to` (but not before the work start date) without any work record (todos do not count). Weekends and holidays are skipped, makeup workdays count, and days before an account was created are skipped. Only members with missing days are listed, most missing first. Allowed for admins, and for everyone when `allowViewAll` is on.
+     * @summary List who missed logging work
+     * @param {string} to Last day checked (the client\&#39;s yesterday), YYYY-MM-DD.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public listMissingEntries(to: string, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).listMissingEntries(to, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**

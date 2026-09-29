@@ -25,6 +25,12 @@ func (b *backend) getWorkRoutes() util.Routes {
 			HandlerFunc: withLogging("ListWorkMembers", b.WrkLog, b.handleListWorkMembers),
 		},
 		{
+			Name:        "ListMissingEntries",
+			Method:      http.MethodGet,
+			Pattern:     "/work/missing",
+			HandlerFunc: withLogging("ListMissingEntries", b.WrkLog, b.handleListMissingEntries),
+		},
+		{
 			Name:        "ListAllWorkRecords",
 			Method:      http.MethodGet,
 			Pattern:     "/work-records",
@@ -111,6 +117,28 @@ func (b *backend) handleListWorkMembers(c *gin.Context) {
 	if errDetail != nil {
 		b.WrkLog.Warnf("List work members failed for %s: %s", c.ClientIP(), errDetail.Detail)
 		c.JSON(errDetail.HttpStatus, model.ResponseWorkMembers{
+			Message: errDetail.Detail,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response)
+}
+
+func (b *backend) handleListMissingEntries(c *gin.Context) {
+	var req model.RequestMissingEntries
+	if err := c.ShouldBindQuery(&req); err != nil {
+		b.WrkLog.Warnf("Invalid missing entries request from %s: %v\n", c.ClientIP(), err)
+		c.JSON(http.StatusBadRequest, model.ResponseMissingEntries{
+			Message: "Invalid request",
+		})
+		return
+	}
+
+	response, errDetail := b.Processor.ListMissingEntries(currentAccount(c), &req)
+	if errDetail != nil {
+		b.WrkLog.Warnf("List missing entries failed for %s: %s", c.ClientIP(), errDetail.Detail)
+		c.JSON(errDetail.HttpStatus, model.ResponseMissingEntries{
 			Message: errDetail.Detail,
 		})
 		return

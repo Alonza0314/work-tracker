@@ -1,6 +1,9 @@
 package model
 
+import "time"
+
 // Account is the persisted user record; Password holds a bcrypt hash.
+// CreatedAt is zero for accounts stored before it existed.
 type Account struct {
 	Account  string `json:"account"`
 	Name     string `json:"name"`
@@ -8,6 +11,8 @@ type Account struct {
 	Role     string `json:"role"`
 	I18n     string `json:"i18n"`
 	IsSystem bool   `json:"isSystem"`
+
+	CreatedAt time.Time `json:"createdAt"`
 }
 
 // User is the public view of an Account (no password).

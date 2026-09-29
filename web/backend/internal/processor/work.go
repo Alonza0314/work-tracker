@@ -89,6 +89,7 @@ func (p *Processor) GetWorkOptions() (*model.ResponseWorkOptions, *model.ErrorDe
 		Categories:   derefAll(categories),
 		Projects:     derefAll(projects),
 		AllowViewAll: setting.AllowViewAll,
+		StartDate:    setting.StartDate,
 	}, nil
 }
 
@@ -242,11 +243,24 @@ func (p *Processor) checkWorkOptionName(store *workOptionStore, selfID, name str
 }
 
 func (p *Processor) SaveWorkSetting(req *model.RequestUpdateWorkSetting) (*model.ResponseWorkSetting, *model.ErrorDetail) {
-	p.ProcLog.Debugf("Processing update work setting: allowViewAll=%t", *req.AllowViewAll)
+	p.ProcLog.Debugf("Processing update work setting")
 
-	setting := &model.WorkSetting{
-		AllowViewAll: *req.AllowViewAll,
+	setting, err := p.GetWorkSetting()
+	if err != nil {
+		p.ProcLog.Errorf("Failed to get work setting: %v", err)
+		return nil, errInternal("Failed to get work setting")
 	}
+
+	if req.AllowViewAll != nil {
+		setting.AllowViewAll = *req.AllowViewAll
+	}
+	if req.StartDate != nil {
+		if *req.StartDate != "" && !isWorkDate(*req.StartDate) {
+			return nil, errBadRequest("Start date must be YYYY-MM-DD")
+		}
+		setting.StartDate = *req.StartDate
+	}
+
 	if err := p.UpdateWorkSetting(setting); err != nil {
 		p.ProcLog.Errorf("Failed to update work setting: %v", err)
 		return nil, errInternal("Failed to update work setting")
@@ -255,6 +269,7 @@ func (p *Processor) SaveWorkSetting(req *model.RequestUpdateWorkSetting) (*model
 	return &model.ResponseWorkSetting{
 		Message:      "Update work setting successful",
 		AllowViewAll: setting.AllowViewAll,
+		StartDate:    setting.StartDate,
 	}, nil
 }
 

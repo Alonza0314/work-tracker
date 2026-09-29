@@ -123,7 +123,6 @@ const zhTW: Messages = {
   'all.reset': '清除篩選',
   'all.totalHours': '總時數',
   'all.records': '筆數',
-  'settings.view.title': '查看權限',
   'settings.view.label': '允許所有人查看所有人工作表',
   'settings.view.desc': '關閉時，只有管理員可以查看所有人工作表。',
   'settings.saved': '設定已更新',
@@ -206,6 +205,20 @@ const zhTW: Messages = {
   'holiday.deleteConfirm': '確定要刪除 {date}「{name}」嗎？這一天會恢復套用政府行事曆。',
   'holiday.deleted': '已刪除自訂項目',
   'holiday.deleteFailed': '刪除失敗',
+  'missing.title': '過去 30 天漏填',
+  'missing.desc': '{from} – {to} · {workdays} 個工作天 · 當天至少有一筆工作紀錄就算已填（待辦不算），已排除週末與假日。',
+  'missing.membersMissing': '有漏填的人',
+  'missing.daysMissing': '漏填總天數',
+  'missing.allDone': '全部成員都有登記',
+  'missing.days': '漏填 {count} 天',
+  'missing.datesOf': '{name} 漏填的日期',
+  'missing.loadFailed': '無法載入漏填資料',
+  'settings.general.title': '一般設定',
+  'settings.start.label': '工作表開始日期',
+  'settings.start.desc': '團隊開始登記工作的日期。開始日期在 30 天內時，漏填從這一天開始計算。',
+  'settings.start.clear': '清除',
+  'missing.fromStart': '自工作表開始日期起計算。',
+  'login.expired': '登入已逾時，請重新登入。',
 }
 
 export default zhTW

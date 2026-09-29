@@ -123,7 +123,6 @@ const en = {
   'all.reset': 'Clear filters',
   'all.totalHours': 'Total hours',
   'all.records': 'Records',
-  'settings.view.title': 'Visibility',
   'settings.view.label': 'Let everyone view everyone\'s work',
   'settings.view.desc': 'When off, only admins can open the everyone\'s work table.',
   'settings.saved': 'Settings updated',
@@ -206,6 +205,20 @@ const en = {
   'holiday.deleteConfirm': 'Delete {date} {name}? The government calendar applies to this date again.',
   'holiday.deleted': 'Custom entry deleted',
   'holiday.deleteFailed': 'Failed to delete',
+  'missing.title': 'Missed entries in the last 30 days',
+  'missing.desc': '{from} – {to} · {workdays} workdays · a day counts once it has at least one work record (todos do not count); weekends and holidays are skipped.',
+  'missing.membersMissing': 'Members with gaps',
+  'missing.daysMissing': 'Days missed',
+  'missing.allDone': 'Everyone logged every workday',
+  'missing.days': '{count} day(s) missed',
+  'missing.datesOf': 'Days {name} missed',
+  'missing.loadFailed': 'Failed to load missed entries',
+  'settings.general.title': 'General',
+  'settings.start.label': 'Work start date',
+  'settings.start.desc': 'When the team started logging. Missed entries are checked from this date while it is less than 30 days ago.',
+  'settings.start.clear': 'Clear',
+  'missing.fromStart': ' Counted from the work start date.',
+  'login.expired': 'Your session has expired. Please sign in again.',
 } as const
 
 export type MessageKey = keyof typeof en
