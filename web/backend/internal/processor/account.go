@@ -7,15 +7,52 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/free-ran-ue/util"
 	"golang.org/x/crypto/bcrypt"
 )
 
-// InitSystemAdmin makes sure the config admin exists in the db as the only
-// system account, with the password from config. Its i18n is kept.
+// MigrateAccountCase renames accounts stored before accounts became
+// case-insensitive to their upper-case form, re-owning their work records and
+// todos. It fails without changing anything when two accounts would collide.
+func (p *Processor) MigrateAccountCase() error {
+	accounts, err := p.ListAccounts()
+	if err != nil {
+		return fmt.Errorf("failed to list accounts: %v", err)
+	}
+
+	owners := map[string]string{}
+	for _, acc := range accounts {
+		upper := normalizeAccount(acc.Account)
+		if other, taken := owners[upper]; taken {
+			return fmt.Errorf("accounts %q and %q both become %q; rename one of them first", other, acc.Account, upper)
+		}
+		owners[upper] = acc.Account
+	}
+
+	for _, acc := range accounts {
+		upper := normalizeAccount(acc.Account)
+		if acc.Account == upper {
+			continue
+		}
+		if err := p.RenameAccount(acc.Account, upper); err != nil {
+			return fmt.Errorf("failed to rename account %s to %s: %v", acc.Account, upper, err)
+		}
+		p.ProcLog.Infof("Account %s renamed to %s", acc.Account, upper)
+	}
+	return nil
+}
+
+// InitSystemAdmin upper-cases stored accounts (MigrateAccountCase), then makes
+// sure the config admin exists in the db as the only system account, with the
+// password from config. Its i18n is kept.
 func (p *Processor) InitSystemAdmin() error {
+	if err := p.MigrateAccountCase(); err != nil {
+		return err
+	}
+
 	accounts, err := p.ListAccounts()
 	if err != nil {
 		return fmt.Errorf("failed to list accounts: %v", err)
@@ -54,7 +91,7 @@ func (p *Processor) InitSystemAdmin() error {
 		return fmt.Errorf("failed to get system admin: %v", err)
 	}
 
-	if !checkPassword(acc.Password, p.password) {
+	if ok, legacy := checkPassword(acc.Password, p.password); !ok || legacy {
 		hash, err := hashPassword(p.password)
 		if err != nil {
 			return err
@@ -74,18 +111,26 @@ func (p *Processor) InitSystemAdmin() error {
 }
 
 func (p *Processor) Login(req *model.RequestLogin) (*model.ResponseLogin, *model.ErrorDetail) {
-	p.ProcLog.Debugf("Processing login for account: %s", req.Account)
+	account := normalizeAccount(req.Account)
+	p.ProcLog.Debugf("Processing login for account: %s", account)
 
-	acc, err := p.GetAccount(req.Account)
+	acc, err := p.GetAccount(account)
 	if err != nil && !errors.Is(err, context.ErrAccountNotFound) {
-		p.ProcLog.Errorf("Failed to get account %s: %v", req.Account, err)
+		p.ProcLog.Errorf("Failed to get account %s: %v", account, err)
 		return nil, errInternal("Failed to get account")
 	}
-	if err != nil || !checkPassword(acc.Password, req.Password) {
+	var ok, legacy bool
+	if err == nil {
+		ok, legacy = checkPassword(acc.Password, req.Password)
+	}
+	if !ok {
 		return nil, &model.ErrorDetail{
 			HttpStatus: http.StatusUnauthorized,
 			Detail:     "Invalid account or incorrect password",
 		}
+	}
+	if legacy {
+		p.upgradePasswordHash(acc, req.Password)
 	}
 
 	token, errDetail := p.createToken(acc)
@@ -102,6 +147,7 @@ func (p *Processor) Login(req *model.RequestLogin) (*model.ResponseLogin, *model
 // Authenticate resolves the JWT subject to the current account, so role and
 // deletion changes apply to already-issued tokens.
 func (p *Processor) Authenticate(account string) (*model.Account, *model.ErrorDetail) {
+	account = normalizeAccount(account)
 	acc, err := p.GetAccount(account)
 	if errors.Is(err, context.ErrAccountNotFound) {
 		return nil, &model.ErrorDetail{
@@ -150,7 +196,7 @@ func (p *Processor) ChangeMyPassword(acc *model.Account, req *model.RequestChang
 	if acc.IsSystem {
 		return nil, errForbidden("The system admin password is managed by the config file")
 	}
-	if !checkPassword(acc.Password, req.OldPassword) {
+	if ok, _ := checkPassword(acc.Password, req.OldPassword); !ok {
 		return nil, errForbidden("Incorrect old password")
 	}
 
@@ -178,17 +224,10 @@ func (p *Processor) ListUsers() (*model.ResponseListUsers, *model.ErrorDetail) {
 		return nil, errInternal("Failed to list users")
 	}
 
-	// system admin first, then the db order (sorted by account)
+	sort.Slice(accounts, func(i, j int) bool { return accounts[i].Account < accounts[j].Account })
 	users := make([]model.User, 0, len(accounts))
 	for _, acc := range accounts {
-		if acc.IsSystem {
-			users = append(users, model.NewUser(acc))
-		}
-	}
-	for _, acc := range accounts {
-		if !acc.IsSystem {
-			users = append(users, model.NewUser(acc))
-		}
+		users = append(users, model.NewUser(acc))
 	}
 
 	return &model.ResponseListUsers{
@@ -200,7 +239,7 @@ func (p *Processor) ListUsers() (*model.ResponseListUsers, *model.ErrorDetail) {
 func (p *Processor) CreateUser(req *model.RequestCreateUser) (*model.ResponseCreateUser, *model.ErrorDetail) {
 	p.ProcLog.Debugf("Processing create user: %s", req.Account)
 
-	account := strings.TrimSpace(req.Account)
+	account := normalizeAccount(req.Account)
 	if account == "" {
 		return nil, errBadRequest("Account must not be blank")
 	}
@@ -243,6 +282,7 @@ func (p *Processor) CreateUser(req *model.RequestCreateUser) (*model.ResponseCre
 }
 
 func (p *Processor) UpdateUser(account string, req *model.RequestUpdateUser) (*model.ResponseUpdateUser, *model.ErrorDetail) {
+	account = normalizeAccount(account)
 	p.ProcLog.Debugf("Processing update user: %s", account)
 
 	acc, errDetail := p.getUser(account)
@@ -287,6 +327,7 @@ func (p *Processor) UpdateUser(account string, req *model.RequestUpdateUser) (*m
 }
 
 func (p *Processor) DeleteUser(operator *model.Account, account string) (*model.ResponseDeleteUser, *model.ErrorDetail) {
+	account = normalizeAccount(account)
 	p.ProcLog.Debugf("Processing delete user %s by %s", account, operator.Account)
 
 	acc, errDetail := p.getUser(account)
@@ -349,16 +390,52 @@ func (p *Processor) createToken(acc *model.Account) (string, *model.ErrorDetail)
 	return token, nil
 }
 
+// upgradePasswordHash re-hashes a password that matched a legacy
+// case-sensitive hash; failures only cost the upgrade, not the login.
+func (p *Processor) upgradePasswordHash(acc *model.Account, password string) {
+	hash, err := hashPassword(password)
+	if err != nil {
+		p.ProcLog.Errorf("Failed to upgrade password hash for %s: %v", acc.Account, err)
+		return
+	}
+	upgraded := *acc
+	upgraded.Password = hash
+	if err := p.UpdateAccount(&upgraded); err != nil {
+		p.ProcLog.Errorf("Failed to upgrade password hash for %s: %v", acc.Account, err)
+		return
+	}
+	p.ProcLog.Infof("Password hash of %s upgraded to case-insensitive", acc.Account)
+}
+
+// accounts are case-insensitive: stored and compared in upper case
+func normalizeAccount(account string) string {
+	return strings.ToUpper(strings.TrimSpace(account))
+}
+
+// passwords are case-insensitive: hashed and compared in upper case
+func normalizePassword(password string) string {
+	return strings.ToUpper(password)
+}
+
 func hashPassword(password string) (string, error) {
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(normalizePassword(password)), bcrypt.DefaultCost)
 	if err != nil {
 		return "", fmt.Errorf("failed to hash password: %v", err)
 	}
 	return string(hash), nil
 }
 
-func checkPassword(hash, password string) bool {
-	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) == nil
+// checkPassword reports whether password matches hash ignoring case. legacy is
+// true when it only matched a hash made before passwords were
+// case-insensitive (exact case), so the caller can re-hash it.
+func checkPassword(hash, password string) (ok bool, legacy bool) {
+	if bcrypt.CompareHashAndPassword([]byte(hash), []byte(normalizePassword(password))) == nil {
+		return true, false
+	}
+	if bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) == nil {
+		return true, true
+	}
+	return false, false
 }
 
 func errBadRequest(detail string) *model.ErrorDetail {
@@ -369,9 +446,13 @@ func errBadRequest(detail string) *model.ErrorDetail {
 }
 
 func errUserNotFound() *model.ErrorDetail {
+	return errNotFound("User not found")
+}
+
+func errNotFound(detail string) *model.ErrorDetail {
 	return &model.ErrorDetail{
 		HttpStatus: http.StatusNotFound,
-		Detail:     "User not found",
+		Detail:     detail,
 	}
 }
 

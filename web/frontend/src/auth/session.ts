@@ -41,7 +41,8 @@ export function parseToken(token: string | null): Session | null {
     const claims = JSON.parse(decodeBase64Url(token.split('.')[1] ?? ''))
     const session: Session = {
       token,
-      account: String(claims.sub ?? ''),
+      // accounts are upper case; tokens issued before that may carry lower case
+      account: String(claims.sub ?? '').toUpperCase(),
       name: String(claims.name || claims.sub || ''),
       role: claims.role === Role.Admin ? Role.Admin : Role.Default,
       i18n: claims.i18n === I18n.En ? I18n.En : I18n.ZhTw,

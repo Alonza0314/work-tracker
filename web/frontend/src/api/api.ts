@@ -23,9 +23,38 @@ import type { RequestArgs } from './base';
 // @ts-ignore
 import { BASE_PATH, COLLECTION_FORMATS, BaseAPI, RequiredError, operationServerMap } from './base';
 
+/**
+ * Palette color name of a task category. Projects have no color. New categories get the least used color.
+ */
+
+export const CategoryColor = {
+    Blue: 'blue',
+    Sky: 'sky',
+    Teal: 'teal',
+    Green: 'green',
+    Lime: 'lime',
+    Amber: 'amber',
+    Orange: 'orange',
+    Red: 'red',
+    Pink: 'pink',
+    Purple: 'purple',
+} as const;
+
+export type CategoryColor = typeof CategoryColor[keyof typeof CategoryColor];
+
+
 export interface ChangeMyPasswordRequest {
     'oldPassword': string;
     'newPassword': string;
+}
+/**
+ * categoryId, hours and projectId fill or override the todo\'s; the resulting record needs a category and hours.
+ */
+export interface CompleteTodoRequest {
+    'date': string;
+    'categoryId'?: string;
+    'hours'?: number;
+    'projectId'?: string;
 }
 export interface CreateUserRequest {
     'account': string;
@@ -35,6 +64,60 @@ export interface CreateUserRequest {
 }
 
 
+export interface CreateWorkOptionRequest {
+    'name': string;
+}
+export interface DeleteWorkOptionResponse {
+    'message': string;
+    /**
+     * Number of work records and todos that no longer reference the deleted option.
+     */
+    'cleared': number;
+}
+export interface Holiday {
+    'date': string;
+    'name': string;
+    'type': HolidayType;
+    'source': HolidaySource;
+}
+
+
+export interface HolidayResponse {
+    'message': string;
+    'holiday': Holiday;
+}
+/**
+ * gov = synced from the office calendar; manual = set by an admin (wins over gov).
+ */
+
+export const HolidaySource = {
+    Gov: 'gov',
+    Manual: 'manual',
+} as const;
+
+export type HolidaySource = typeof HolidaySource[keyof typeof HolidaySource];
+
+
+/**
+ * holiday = a weekday off; workday = a working weekend day.
+ */
+
+export const HolidayType = {
+    Holiday: 'holiday',
+    Workday: 'workday',
+} as const;
+
+export type HolidayType = typeof HolidayType[keyof typeof HolidayType];
+
+
+export interface HolidaysResponse {
+    'message': string;
+    'holidays': Array<Holiday>;
+    /**
+     * Missing before the first successful sync.
+     */
+    'lastSyncedAt'?: string;
+}
 
 export const I18n = {
     ZhTw: 'zh-TW',
@@ -68,6 +151,35 @@ export const Role = {
 export type Role = typeof Role[keyof typeof Role];
 
 
+export interface SaveHolidayRequest {
+    'name': string;
+    'type': HolidayType;
+}
+
+
+/**
+ * Work records require categoryId and hours; todos only require date and description. projectId is always optional.
+ */
+export interface SaveWorkEntryRequest {
+    'date': string;
+    'categoryId'?: string;
+    'description': string;
+    'hours'?: number;
+    'projectId'?: string;
+}
+export interface SyncHolidaysResponse {
+    'message': string;
+    'synced': number;
+    'lastSyncedAt': string;
+}
+export interface TodoResponse {
+    'message': string;
+    'todo': WorkRecord;
+}
+export interface TodosResponse {
+    'message': string;
+    'todos': Array<WorkRecord>;
+}
 export interface TokenResponse {
     'message': string;
     'token': string;
@@ -85,6 +197,16 @@ export interface UpdateUserRequest {
 }
 
 
+export interface UpdateWorkOptionRequest {
+    'name'?: string;
+    'active'?: boolean;
+    'color'?: CategoryColor;
+}
+
+
+export interface UpdateWorkSettingRequest {
+    'allowViewAll': boolean;
+}
 export interface User {
     'account': string;
     'name': string;
@@ -100,6 +222,89 @@ export interface User {
 export interface UserResponse {
     'message': string;
     'user': User;
+}
+export interface WeekDay {
+    'date': string;
+    'workday': boolean;
+    /**
+     * Name of the holiday or makeup workday on this date.
+     */
+    'holidayName'?: string;
+    'loggedHours': number;
+    'requiredHours': number;
+}
+export interface WeekSummaryResponse {
+    'message': string;
+    'from': string;
+    'to': string;
+    'recordCount': number;
+    'loggedHours': number;
+    'requiredHours': number;
+    /**
+     * requiredHours - loggedHours, never below 0.
+     */
+    'remainingHours': number;
+    /**
+     * Weekdays off in the week.
+     */
+    'daysOff': number;
+    'days': Array<WeekDay>;
+}
+export interface WorkMember {
+    'account': string;
+    'name': string;
+}
+export interface WorkMembersResponse {
+    'message': string;
+    'members': Array<WorkMember>;
+}
+export interface WorkOption {
+    'id': string;
+    'name': string;
+    /**
+     * Inactive options are hidden from new entries but still name old ones.
+     */
+    'active': boolean;
+    'color'?: CategoryColor;
+}
+
+
+export interface WorkOptionResponse {
+    'message': string;
+    'option': WorkOption;
+}
+export interface WorkOptionsResponse {
+    'message': string;
+    'categories': Array<WorkOption>;
+    'projects': Array<WorkOption>;
+    'allowViewAll': boolean;
+}
+/**
+ * Optional fields are empty (\"\" / 0) when not set. Records always have categoryId and hours; todos may not.
+ */
+export interface WorkRecord {
+    'id': string;
+    'account': string;
+    'date': string;
+    'categoryId': string;
+    'description': string;
+    'hours': number;
+    'projectId': string;
+    'createdAt': string;
+}
+export interface WorkRecordListResponse {
+    'message': string;
+    'records': Array<WorkRecord>;
+    'total': number;
+    'totalHours': number;
+}
+export interface WorkRecordResponse {
+    'message': string;
+    'record': WorkRecord;
+}
+export interface WorkSettingResponse {
+    'message': string;
+    'allowViewAll': boolean;
 }
 
 /**
@@ -147,7 +352,206 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             };
         },
         /**
-         * The new user\'s initial password is its account.
+         * Deletes the todo and adds it as a work record dated `date` (the client\'s today). Answers 400 and keeps the todo when the record would lack a category or hours.
+         * @summary Complete a todo
+         * @param {string} id 
+         * @param {CompleteTodoRequest} completeTodoRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        completeMyTodo: async (id: string, completeTodoRequest: CompleteTodoRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'id' is not null or undefined
+            assertParamExists('completeMyTodo', 'id', id)
+            // verify required parameter 'completeTodoRequest' is not null or undefined
+            assertParamExists('completeMyTodo', 'completeTodoRequest', completeTodoRequest)
+            const localVarPath = `/api/me/todos/{id}/complete`
+                .replace('{id}', encodeURIComponent(String(id)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(completeTodoRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Add a task category (admin)
+         * @param {CreateWorkOptionRequest} createWorkOptionRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        createCategory: async (createWorkOptionRequest: CreateWorkOptionRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'createWorkOptionRequest' is not null or undefined
+            assertParamExists('createCategory', 'createWorkOptionRequest', createWorkOptionRequest)
+            const localVarPath = `/api/categories`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(createWorkOptionRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Add a todo
+         * @param {SaveWorkEntryRequest} saveWorkEntryRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        createMyTodo: async (saveWorkEntryRequest: SaveWorkEntryRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'saveWorkEntryRequest' is not null or undefined
+            assertParamExists('createMyTodo', 'saveWorkEntryRequest', saveWorkEntryRequest)
+            const localVarPath = `/api/me/todos`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(saveWorkEntryRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Add a work record
+         * @param {SaveWorkEntryRequest} saveWorkEntryRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        createMyWorkRecord: async (saveWorkEntryRequest: SaveWorkEntryRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'saveWorkEntryRequest' is not null or undefined
+            assertParamExists('createMyWorkRecord', 'saveWorkEntryRequest', saveWorkEntryRequest)
+            const localVarPath = `/api/me/work-records`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(saveWorkEntryRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Add a project (admin)
+         * @param {CreateWorkOptionRequest} createWorkOptionRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        createProject: async (createWorkOptionRequest: CreateWorkOptionRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'createWorkOptionRequest' is not null or undefined
+            assertParamExists('createProject', 'createWorkOptionRequest', createWorkOptionRequest)
+            const localVarPath = `/api/projects`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(createWorkOptionRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * The account is stored in upper case. The new user\'s initial password is its account; passwords are case-insensitive.
          * @summary Create a user (admin)
          * @param {CreateUserRequest} createUserRequest 
          * @param {*} [options] Override http request option.
@@ -179,6 +583,196 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
             localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
             localVarRequestOptions.data = serializeDataIfNeeded(createUserRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Work records and todos using it get an empty categoryId. `cleared` is how many were changed.
+         * @summary Delete a task category (admin)
+         * @param {string} id 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        deleteCategory: async (id: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'id' is not null or undefined
+            assertParamExists('deleteCategory', 'id', id)
+            const localVarPath = `/api/categories/{id}`
+                .replace('{id}', encodeURIComponent(String(id)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'DELETE', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * The government entry of the date, if any, applies again.
+         * @summary Delete a manual holiday entry (admin)
+         * @param {string} date 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        deleteHoliday: async (date: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'date' is not null or undefined
+            assertParamExists('deleteHoliday', 'date', date)
+            const localVarPath = `/api/holidays/{date}`
+                .replace('{date}', encodeURIComponent(String(date)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'DELETE', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Delete one of my todos
+         * @param {string} id 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        deleteMyTodo: async (id: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'id' is not null or undefined
+            assertParamExists('deleteMyTodo', 'id', id)
+            const localVarPath = `/api/me/todos/{id}`
+                .replace('{id}', encodeURIComponent(String(id)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'DELETE', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Delete one of my work records
+         * @param {string} id 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        deleteMyWorkRecord: async (id: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'id' is not null or undefined
+            assertParamExists('deleteMyWorkRecord', 'id', id)
+            const localVarPath = `/api/me/work-records/{id}`
+                .replace('{id}', encodeURIComponent(String(id)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'DELETE', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Work records and todos using it get an empty projectId. `cleared` is how many were changed.
+         * @summary Delete a project (admin)
+         * @param {string} id 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        deleteProject: async (id: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'id' is not null or undefined
+            assertParamExists('deleteProject', 'id', id)
+            const localVarPath = `/api/projects/{id}`
+                .replace('{id}', encodeURIComponent(String(id)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'DELETE', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
 
             return {
                 url: toPathString(localVarUrlObj),
@@ -258,6 +852,277 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             };
         },
         /**
+         * Records and hours of the 7 days starting at `from`, and the hours to log: 8 per workday, where workdays are Monday-Friday minus holidays plus makeup workdays from the holiday calendar.
+         * @summary Summarize my week
+         * @param {string} from First day of the week (a Monday in the UI), YYYY-MM-DD.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getWeekSummary: async (from: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'from' is not null or undefined
+            assertParamExists('getWeekSummary', 'from', from)
+            const localVarPath = `/api/me/week-summary`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            if (from !== undefined) {
+                localVarQueryParameter['from'] = (from as any instanceof Date) ?
+                    (from as any).toISOString().substring(0,10) :
+                    from;
+            }
+
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Categories and projects include inactive ones, so old entries can still show their names.
+         * @summary Get task categories, projects and the work table setting
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getWorkOptions: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/work/options`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Every record dated from..to (the frontend asks for one week), newest date first. Allowed for admins, and for everyone when `allowViewAll` is on.
+         * @summary List everyone\'s work records
+         * @param {string} from Inclusive start date (YYYY-MM-DD).
+         * @param {string} to Inclusive end date (YYYY-MM-DD), not before &#x60;from&#x60;.
+         * @param {string} [account] 
+         * @param {string} [categoryId] 
+         * @param {string} [projectId] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        listAllWorkRecords: async (from: string, to: string, account?: string, categoryId?: string, projectId?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'from' is not null or undefined
+            assertParamExists('listAllWorkRecords', 'from', from)
+            // verify required parameter 'to' is not null or undefined
+            assertParamExists('listAllWorkRecords', 'to', to)
+            const localVarPath = `/api/work-records`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            if (from !== undefined) {
+                localVarQueryParameter['from'] = (from as any instanceof Date) ?
+                    (from as any).toISOString().substring(0,10) :
+                    from;
+            }
+
+            if (to !== undefined) {
+                localVarQueryParameter['to'] = (to as any instanceof Date) ?
+                    (to as any).toISOString().substring(0,10) :
+                    to;
+            }
+
+            if (account !== undefined) {
+                localVarQueryParameter['account'] = account;
+            }
+
+            if (categoryId !== undefined) {
+                localVarQueryParameter['categoryId'] = categoryId;
+            }
+
+            if (projectId !== undefined) {
+                localVarQueryParameter['projectId'] = projectId;
+            }
+
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * The effective entry per date (a manual entry wins over the government one).
+         * @summary List a year\'s holiday calendar
+         * @param {string} year 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        listHolidays: async (year: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'year' is not null or undefined
+            assertParamExists('listHolidays', 'year', year)
+            const localVarPath = `/api/holidays`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            if (year !== undefined) {
+                localVarQueryParameter['year'] = year;
+            }
+
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Sorted by date, earliest first.
+         * @summary List my todos
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        listMyTodos: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/me/todos`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Every record dated from..to (the frontend asks for one week), newest date first.
+         * @summary List my work records
+         * @param {string} from Inclusive start date (YYYY-MM-DD).
+         * @param {string} to Inclusive end date (YYYY-MM-DD), not before &#x60;from&#x60;.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        listMyWorkRecords: async (from: string, to: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'from' is not null or undefined
+            assertParamExists('listMyWorkRecords', 'from', from)
+            // verify required parameter 'to' is not null or undefined
+            assertParamExists('listMyWorkRecords', 'to', to)
+            const localVarPath = `/api/me/work-records`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            if (from !== undefined) {
+                localVarQueryParameter['from'] = (from as any instanceof Date) ?
+                    (from as any).toISOString().substring(0,10) :
+                    from;
+            }
+
+            if (to !== undefined) {
+                localVarQueryParameter['to'] = (to as any instanceof Date) ?
+                    (to as any).toISOString().substring(0,10) :
+                    to;
+            }
+
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
          * 
          * @summary List users (admin)
          * @param {*} [options] Override http request option.
@@ -292,7 +1157,41 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             };
         },
         /**
-         * The returned JWT carries `sub` (account), `name`, `role` and `i18n` claims.
+         * Allowed for admins, and for everyone when `allowViewAll` is on.
+         * @summary List members for the everyone\'s work table
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        listWorkMembers: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/work/members`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Account and password are case-insensitive (accounts are stored in upper case). The returned JWT carries `sub` (account), `name`, `role` and `i18n` claims.
          * @summary Login
          * @param {LoginRequest} loginRequest 
          * @param {*} [options] Override http request option.
@@ -356,6 +1255,126 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             };
         },
         /**
+         * Creates or replaces the manual entry of the date; it wins over the government entry.
+         * @summary Set a manual holiday or makeup workday (admin)
+         * @param {string} date 
+         * @param {SaveHolidayRequest} saveHolidayRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        saveHoliday: async (date: string, saveHolidayRequest: SaveHolidayRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'date' is not null or undefined
+            assertParamExists('saveHoliday', 'date', date)
+            // verify required parameter 'saveHolidayRequest' is not null or undefined
+            assertParamExists('saveHoliday', 'saveHolidayRequest', saveHolidayRequest)
+            const localVarPath = `/api/holidays/{date}`
+                .replace('{date}', encodeURIComponent(String(date)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'PUT', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(saveHolidayRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Replaces the government entries of this year and the next; manual entries are kept.
+         * @summary Sync the government office calendar now (admin)
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        syncHolidays: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/holidays/sync`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Rename or (de)activate a task category (admin)
+         * @param {string} id 
+         * @param {UpdateWorkOptionRequest} updateWorkOptionRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        updateCategory: async (id: string, updateWorkOptionRequest: UpdateWorkOptionRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'id' is not null or undefined
+            assertParamExists('updateCategory', 'id', id)
+            // verify required parameter 'updateWorkOptionRequest' is not null or undefined
+            assertParamExists('updateCategory', 'updateWorkOptionRequest', updateWorkOptionRequest)
+            const localVarPath = `/api/categories/{id}`
+                .replace('{id}', encodeURIComponent(String(id)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'PUT', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(updateWorkOptionRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
          * Returns a new JWT carrying the updated `i18n` claim.
          * @summary Update the logged-in user\'s preferences
          * @param {UpdateMeRequest} updateMeRequest 
@@ -388,6 +1407,135 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
             localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
             localVarRequestOptions.data = serializeDataIfNeeded(updateMeRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Replace one of my todos
+         * @param {string} id 
+         * @param {SaveWorkEntryRequest} saveWorkEntryRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        updateMyTodo: async (id: string, saveWorkEntryRequest: SaveWorkEntryRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'id' is not null or undefined
+            assertParamExists('updateMyTodo', 'id', id)
+            // verify required parameter 'saveWorkEntryRequest' is not null or undefined
+            assertParamExists('updateMyTodo', 'saveWorkEntryRequest', saveWorkEntryRequest)
+            const localVarPath = `/api/me/todos/{id}`
+                .replace('{id}', encodeURIComponent(String(id)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'PUT', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(saveWorkEntryRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Replace one of my work records
+         * @param {string} id 
+         * @param {SaveWorkEntryRequest} saveWorkEntryRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        updateMyWorkRecord: async (id: string, saveWorkEntryRequest: SaveWorkEntryRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'id' is not null or undefined
+            assertParamExists('updateMyWorkRecord', 'id', id)
+            // verify required parameter 'saveWorkEntryRequest' is not null or undefined
+            assertParamExists('updateMyWorkRecord', 'saveWorkEntryRequest', saveWorkEntryRequest)
+            const localVarPath = `/api/me/work-records/{id}`
+                .replace('{id}', encodeURIComponent(String(id)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'PUT', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(saveWorkEntryRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Rename or (de)activate a project (admin)
+         * @param {string} id 
+         * @param {UpdateWorkOptionRequest} updateWorkOptionRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        updateProject: async (id: string, updateWorkOptionRequest: UpdateWorkOptionRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'id' is not null or undefined
+            assertParamExists('updateProject', 'id', id)
+            // verify required parameter 'updateWorkOptionRequest' is not null or undefined
+            assertParamExists('updateProject', 'updateWorkOptionRequest', updateWorkOptionRequest)
+            const localVarPath = `/api/projects/{id}`
+                .replace('{id}', encodeURIComponent(String(id)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'PUT', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(updateWorkOptionRequest, localVarRequestOptions, configuration)
 
             return {
                 url: toPathString(localVarUrlObj),
@@ -437,6 +1585,45 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
                 options: localVarRequestOptions,
             };
         },
+        /**
+         * 
+         * @summary Update the work table setting (admin)
+         * @param {UpdateWorkSettingRequest} updateWorkSettingRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        updateWorkSetting: async (updateWorkSettingRequest: UpdateWorkSettingRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'updateWorkSettingRequest' is not null or undefined
+            assertParamExists('updateWorkSetting', 'updateWorkSettingRequest', updateWorkSettingRequest)
+            const localVarPath = `/api/settings/work`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'PUT', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(updateWorkSettingRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
     }
 };
 
@@ -460,7 +1647,73 @@ export const DefaultApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
-         * The new user\'s initial password is its account.
+         * Deletes the todo and adds it as a work record dated `date` (the client\'s today). Answers 400 and keeps the todo when the record would lack a category or hours.
+         * @summary Complete a todo
+         * @param {string} id 
+         * @param {CompleteTodoRequest} completeTodoRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async completeMyTodo(id: string, completeTodoRequest: CompleteTodoRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<WorkRecordResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.completeMyTodo(id, completeTodoRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.completeMyTodo']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Add a task category (admin)
+         * @param {CreateWorkOptionRequest} createWorkOptionRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async createCategory(createWorkOptionRequest: CreateWorkOptionRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<WorkOptionResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.createCategory(createWorkOptionRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.createCategory']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Add a todo
+         * @param {SaveWorkEntryRequest} saveWorkEntryRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async createMyTodo(saveWorkEntryRequest: SaveWorkEntryRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<TodoResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.createMyTodo(saveWorkEntryRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.createMyTodo']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Add a work record
+         * @param {SaveWorkEntryRequest} saveWorkEntryRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async createMyWorkRecord(saveWorkEntryRequest: SaveWorkEntryRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<WorkRecordResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.createMyWorkRecord(saveWorkEntryRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.createMyWorkRecord']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Add a project (admin)
+         * @param {CreateWorkOptionRequest} createWorkOptionRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async createProject(createWorkOptionRequest: CreateWorkOptionRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<WorkOptionResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.createProject(createWorkOptionRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.createProject']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * The account is stored in upper case. The new user\'s initial password is its account; passwords are case-insensitive.
          * @summary Create a user (admin)
          * @param {CreateUserRequest} createUserRequest 
          * @param {*} [options] Override http request option.
@@ -470,6 +1723,71 @@ export const DefaultApiFp = function(configuration?: Configuration) {
             const localVarAxiosArgs = await localVarAxiosParamCreator.createUser(createUserRequest, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['DefaultApi.createUser']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Work records and todos using it get an empty categoryId. `cleared` is how many were changed.
+         * @summary Delete a task category (admin)
+         * @param {string} id 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async deleteCategory(id: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<DeleteWorkOptionResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.deleteCategory(id, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.deleteCategory']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * The government entry of the date, if any, applies again.
+         * @summary Delete a manual holiday entry (admin)
+         * @param {string} date 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async deleteHoliday(date: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<MessageResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.deleteHoliday(date, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.deleteHoliday']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Delete one of my todos
+         * @param {string} id 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async deleteMyTodo(id: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<MessageResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.deleteMyTodo(id, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.deleteMyTodo']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Delete one of my work records
+         * @param {string} id 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async deleteMyWorkRecord(id: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<MessageResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.deleteMyWorkRecord(id, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.deleteMyWorkRecord']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Work records and todos using it get an empty projectId. `cleared` is how many were changed.
+         * @summary Delete a project (admin)
+         * @param {string} id 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async deleteProject(id: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<DeleteWorkOptionResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.deleteProject(id, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.deleteProject']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
@@ -498,6 +1816,87 @@ export const DefaultApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
+         * Records and hours of the 7 days starting at `from`, and the hours to log: 8 per workday, where workdays are Monday-Friday minus holidays plus makeup workdays from the holiday calendar.
+         * @summary Summarize my week
+         * @param {string} from First day of the week (a Monday in the UI), YYYY-MM-DD.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async getWeekSummary(from: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<WeekSummaryResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.getWeekSummary(from, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.getWeekSummary']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Categories and projects include inactive ones, so old entries can still show their names.
+         * @summary Get task categories, projects and the work table setting
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async getWorkOptions(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<WorkOptionsResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.getWorkOptions(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.getWorkOptions']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Every record dated from..to (the frontend asks for one week), newest date first. Allowed for admins, and for everyone when `allowViewAll` is on.
+         * @summary List everyone\'s work records
+         * @param {string} from Inclusive start date (YYYY-MM-DD).
+         * @param {string} to Inclusive end date (YYYY-MM-DD), not before &#x60;from&#x60;.
+         * @param {string} [account] 
+         * @param {string} [categoryId] 
+         * @param {string} [projectId] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async listAllWorkRecords(from: string, to: string, account?: string, categoryId?: string, projectId?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<WorkRecordListResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.listAllWorkRecords(from, to, account, categoryId, projectId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.listAllWorkRecords']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * The effective entry per date (a manual entry wins over the government one).
+         * @summary List a year\'s holiday calendar
+         * @param {string} year 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async listHolidays(year: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<HolidaysResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.listHolidays(year, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.listHolidays']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Sorted by date, earliest first.
+         * @summary List my todos
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async listMyTodos(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<TodosResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.listMyTodos(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.listMyTodos']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Every record dated from..to (the frontend asks for one week), newest date first.
+         * @summary List my work records
+         * @param {string} from Inclusive start date (YYYY-MM-DD).
+         * @param {string} to Inclusive end date (YYYY-MM-DD), not before &#x60;from&#x60;.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async listMyWorkRecords(from: string, to: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<WorkRecordListResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.listMyWorkRecords(from, to, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.listMyWorkRecords']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
          * 
          * @summary List users (admin)
          * @param {*} [options] Override http request option.
@@ -510,7 +1909,19 @@ export const DefaultApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
-         * The returned JWT carries `sub` (account), `name`, `role` and `i18n` claims.
+         * Allowed for admins, and for everyone when `allowViewAll` is on.
+         * @summary List members for the everyone\'s work table
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async listWorkMembers(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<WorkMembersResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.listWorkMembers(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.listWorkMembers']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Account and password are case-insensitive (accounts are stored in upper case). The returned JWT carries `sub` (account), `name`, `role` and `i18n` claims.
          * @summary Login
          * @param {LoginRequest} loginRequest 
          * @param {*} [options] Override http request option.
@@ -535,6 +1946,46 @@ export const DefaultApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
+         * Creates or replaces the manual entry of the date; it wins over the government entry.
+         * @summary Set a manual holiday or makeup workday (admin)
+         * @param {string} date 
+         * @param {SaveHolidayRequest} saveHolidayRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async saveHoliday(date: string, saveHolidayRequest: SaveHolidayRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<HolidayResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.saveHoliday(date, saveHolidayRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.saveHoliday']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Replaces the government entries of this year and the next; manual entries are kept.
+         * @summary Sync the government office calendar now (admin)
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async syncHolidays(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<SyncHolidaysResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.syncHolidays(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.syncHolidays']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Rename or (de)activate a task category (admin)
+         * @param {string} id 
+         * @param {UpdateWorkOptionRequest} updateWorkOptionRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async updateCategory(id: string, updateWorkOptionRequest: UpdateWorkOptionRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<WorkOptionResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.updateCategory(id, updateWorkOptionRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.updateCategory']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
          * Returns a new JWT carrying the updated `i18n` claim.
          * @summary Update the logged-in user\'s preferences
          * @param {UpdateMeRequest} updateMeRequest 
@@ -545,6 +1996,48 @@ export const DefaultApiFp = function(configuration?: Configuration) {
             const localVarAxiosArgs = await localVarAxiosParamCreator.updateMe(updateMeRequest, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['DefaultApi.updateMe']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Replace one of my todos
+         * @param {string} id 
+         * @param {SaveWorkEntryRequest} saveWorkEntryRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async updateMyTodo(id: string, saveWorkEntryRequest: SaveWorkEntryRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<TodoResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.updateMyTodo(id, saveWorkEntryRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.updateMyTodo']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Replace one of my work records
+         * @param {string} id 
+         * @param {SaveWorkEntryRequest} saveWorkEntryRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async updateMyWorkRecord(id: string, saveWorkEntryRequest: SaveWorkEntryRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<WorkRecordResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.updateMyWorkRecord(id, saveWorkEntryRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.updateMyWorkRecord']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Rename or (de)activate a project (admin)
+         * @param {string} id 
+         * @param {UpdateWorkOptionRequest} updateWorkOptionRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async updateProject(id: string, updateWorkOptionRequest: UpdateWorkOptionRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<WorkOptionResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.updateProject(id, updateWorkOptionRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.updateProject']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
@@ -559,6 +2052,19 @@ export const DefaultApiFp = function(configuration?: Configuration) {
             const localVarAxiosArgs = await localVarAxiosParamCreator.updateUser(account, updateUserRequest, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['DefaultApi.updateUser']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Update the work table setting (admin)
+         * @param {UpdateWorkSettingRequest} updateWorkSettingRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async updateWorkSetting(updateWorkSettingRequest: UpdateWorkSettingRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<WorkSettingResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.updateWorkSetting(updateWorkSettingRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.updateWorkSetting']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
     }
@@ -581,7 +2087,58 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
             return localVarFp.changeMyPassword(changeMyPasswordRequest, options).then((request) => request(axios, basePath));
         },
         /**
-         * The new user\'s initial password is its account.
+         * Deletes the todo and adds it as a work record dated `date` (the client\'s today). Answers 400 and keeps the todo when the record would lack a category or hours.
+         * @summary Complete a todo
+         * @param {string} id 
+         * @param {CompleteTodoRequest} completeTodoRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        completeMyTodo(id: string, completeTodoRequest: CompleteTodoRequest, options?: RawAxiosRequestConfig): AxiosPromise<WorkRecordResponse> {
+            return localVarFp.completeMyTodo(id, completeTodoRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Add a task category (admin)
+         * @param {CreateWorkOptionRequest} createWorkOptionRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        createCategory(createWorkOptionRequest: CreateWorkOptionRequest, options?: RawAxiosRequestConfig): AxiosPromise<WorkOptionResponse> {
+            return localVarFp.createCategory(createWorkOptionRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Add a todo
+         * @param {SaveWorkEntryRequest} saveWorkEntryRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        createMyTodo(saveWorkEntryRequest: SaveWorkEntryRequest, options?: RawAxiosRequestConfig): AxiosPromise<TodoResponse> {
+            return localVarFp.createMyTodo(saveWorkEntryRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Add a work record
+         * @param {SaveWorkEntryRequest} saveWorkEntryRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        createMyWorkRecord(saveWorkEntryRequest: SaveWorkEntryRequest, options?: RawAxiosRequestConfig): AxiosPromise<WorkRecordResponse> {
+            return localVarFp.createMyWorkRecord(saveWorkEntryRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Add a project (admin)
+         * @param {CreateWorkOptionRequest} createWorkOptionRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        createProject(createWorkOptionRequest: CreateWorkOptionRequest, options?: RawAxiosRequestConfig): AxiosPromise<WorkOptionResponse> {
+            return localVarFp.createProject(createWorkOptionRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * The account is stored in upper case. The new user\'s initial password is its account; passwords are case-insensitive.
          * @summary Create a user (admin)
          * @param {CreateUserRequest} createUserRequest 
          * @param {*} [options] Override http request option.
@@ -589,6 +2146,56 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
          */
         createUser(createUserRequest: CreateUserRequest, options?: RawAxiosRequestConfig): AxiosPromise<UserResponse> {
             return localVarFp.createUser(createUserRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Work records and todos using it get an empty categoryId. `cleared` is how many were changed.
+         * @summary Delete a task category (admin)
+         * @param {string} id 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        deleteCategory(id: string, options?: RawAxiosRequestConfig): AxiosPromise<DeleteWorkOptionResponse> {
+            return localVarFp.deleteCategory(id, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * The government entry of the date, if any, applies again.
+         * @summary Delete a manual holiday entry (admin)
+         * @param {string} date 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        deleteHoliday(date: string, options?: RawAxiosRequestConfig): AxiosPromise<MessageResponse> {
+            return localVarFp.deleteHoliday(date, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Delete one of my todos
+         * @param {string} id 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        deleteMyTodo(id: string, options?: RawAxiosRequestConfig): AxiosPromise<MessageResponse> {
+            return localVarFp.deleteMyTodo(id, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Delete one of my work records
+         * @param {string} id 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        deleteMyWorkRecord(id: string, options?: RawAxiosRequestConfig): AxiosPromise<MessageResponse> {
+            return localVarFp.deleteMyWorkRecord(id, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Work records and todos using it get an empty projectId. `cleared` is how many were changed.
+         * @summary Delete a project (admin)
+         * @param {string} id 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        deleteProject(id: string, options?: RawAxiosRequestConfig): AxiosPromise<DeleteWorkOptionResponse> {
+            return localVarFp.deleteProject(id, options).then((request) => request(axios, basePath));
         },
         /**
          * The system admin and the caller themself cannot be deleted.
@@ -610,6 +2217,69 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
             return localVarFp.getMe(options).then((request) => request(axios, basePath));
         },
         /**
+         * Records and hours of the 7 days starting at `from`, and the hours to log: 8 per workday, where workdays are Monday-Friday minus holidays plus makeup workdays from the holiday calendar.
+         * @summary Summarize my week
+         * @param {string} from First day of the week (a Monday in the UI), YYYY-MM-DD.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getWeekSummary(from: string, options?: RawAxiosRequestConfig): AxiosPromise<WeekSummaryResponse> {
+            return localVarFp.getWeekSummary(from, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Categories and projects include inactive ones, so old entries can still show their names.
+         * @summary Get task categories, projects and the work table setting
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getWorkOptions(options?: RawAxiosRequestConfig): AxiosPromise<WorkOptionsResponse> {
+            return localVarFp.getWorkOptions(options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Every record dated from..to (the frontend asks for one week), newest date first. Allowed for admins, and for everyone when `allowViewAll` is on.
+         * @summary List everyone\'s work records
+         * @param {string} from Inclusive start date (YYYY-MM-DD).
+         * @param {string} to Inclusive end date (YYYY-MM-DD), not before &#x60;from&#x60;.
+         * @param {string} [account] 
+         * @param {string} [categoryId] 
+         * @param {string} [projectId] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        listAllWorkRecords(from: string, to: string, account?: string, categoryId?: string, projectId?: string, options?: RawAxiosRequestConfig): AxiosPromise<WorkRecordListResponse> {
+            return localVarFp.listAllWorkRecords(from, to, account, categoryId, projectId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * The effective entry per date (a manual entry wins over the government one).
+         * @summary List a year\'s holiday calendar
+         * @param {string} year 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        listHolidays(year: string, options?: RawAxiosRequestConfig): AxiosPromise<HolidaysResponse> {
+            return localVarFp.listHolidays(year, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Sorted by date, earliest first.
+         * @summary List my todos
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        listMyTodos(options?: RawAxiosRequestConfig): AxiosPromise<TodosResponse> {
+            return localVarFp.listMyTodos(options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Every record dated from..to (the frontend asks for one week), newest date first.
+         * @summary List my work records
+         * @param {string} from Inclusive start date (YYYY-MM-DD).
+         * @param {string} to Inclusive end date (YYYY-MM-DD), not before &#x60;from&#x60;.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        listMyWorkRecords(from: string, to: string, options?: RawAxiosRequestConfig): AxiosPromise<WorkRecordListResponse> {
+            return localVarFp.listMyWorkRecords(from, to, options).then((request) => request(axios, basePath));
+        },
+        /**
          * 
          * @summary List users (admin)
          * @param {*} [options] Override http request option.
@@ -619,7 +2289,16 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
             return localVarFp.listUsers(options).then((request) => request(axios, basePath));
         },
         /**
-         * The returned JWT carries `sub` (account), `name`, `role` and `i18n` claims.
+         * Allowed for admins, and for everyone when `allowViewAll` is on.
+         * @summary List members for the everyone\'s work table
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        listWorkMembers(options?: RawAxiosRequestConfig): AxiosPromise<WorkMembersResponse> {
+            return localVarFp.listWorkMembers(options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Account and password are case-insensitive (accounts are stored in upper case). The returned JWT carries `sub` (account), `name`, `role` and `i18n` claims.
          * @summary Login
          * @param {LoginRequest} loginRequest 
          * @param {*} [options] Override http request option.
@@ -638,6 +2317,37 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
             return localVarFp.logout(options).then((request) => request(axios, basePath));
         },
         /**
+         * Creates or replaces the manual entry of the date; it wins over the government entry.
+         * @summary Set a manual holiday or makeup workday (admin)
+         * @param {string} date 
+         * @param {SaveHolidayRequest} saveHolidayRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        saveHoliday(date: string, saveHolidayRequest: SaveHolidayRequest, options?: RawAxiosRequestConfig): AxiosPromise<HolidayResponse> {
+            return localVarFp.saveHoliday(date, saveHolidayRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Replaces the government entries of this year and the next; manual entries are kept.
+         * @summary Sync the government office calendar now (admin)
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        syncHolidays(options?: RawAxiosRequestConfig): AxiosPromise<SyncHolidaysResponse> {
+            return localVarFp.syncHolidays(options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Rename or (de)activate a task category (admin)
+         * @param {string} id 
+         * @param {UpdateWorkOptionRequest} updateWorkOptionRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        updateCategory(id: string, updateWorkOptionRequest: UpdateWorkOptionRequest, options?: RawAxiosRequestConfig): AxiosPromise<WorkOptionResponse> {
+            return localVarFp.updateCategory(id, updateWorkOptionRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
          * Returns a new JWT carrying the updated `i18n` claim.
          * @summary Update the logged-in user\'s preferences
          * @param {UpdateMeRequest} updateMeRequest 
@@ -646,6 +2356,39 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
          */
         updateMe(updateMeRequest: UpdateMeRequest, options?: RawAxiosRequestConfig): AxiosPromise<TokenResponse> {
             return localVarFp.updateMe(updateMeRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Replace one of my todos
+         * @param {string} id 
+         * @param {SaveWorkEntryRequest} saveWorkEntryRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        updateMyTodo(id: string, saveWorkEntryRequest: SaveWorkEntryRequest, options?: RawAxiosRequestConfig): AxiosPromise<TodoResponse> {
+            return localVarFp.updateMyTodo(id, saveWorkEntryRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Replace one of my work records
+         * @param {string} id 
+         * @param {SaveWorkEntryRequest} saveWorkEntryRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        updateMyWorkRecord(id: string, saveWorkEntryRequest: SaveWorkEntryRequest, options?: RawAxiosRequestConfig): AxiosPromise<WorkRecordResponse> {
+            return localVarFp.updateMyWorkRecord(id, saveWorkEntryRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Rename or (de)activate a project (admin)
+         * @param {string} id 
+         * @param {UpdateWorkOptionRequest} updateWorkOptionRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        updateProject(id: string, updateWorkOptionRequest: UpdateWorkOptionRequest, options?: RawAxiosRequestConfig): AxiosPromise<WorkOptionResponse> {
+            return localVarFp.updateProject(id, updateWorkOptionRequest, options).then((request) => request(axios, basePath));
         },
         /**
          * Only the given fields are changed. The system admin cannot be updated.
@@ -657,6 +2400,16 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
          */
         updateUser(account: string, updateUserRequest: UpdateUserRequest, options?: RawAxiosRequestConfig): AxiosPromise<UserResponse> {
             return localVarFp.updateUser(account, updateUserRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Update the work table setting (admin)
+         * @param {UpdateWorkSettingRequest} updateWorkSettingRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        updateWorkSetting(updateWorkSettingRequest: UpdateWorkSettingRequest, options?: RawAxiosRequestConfig): AxiosPromise<WorkSettingResponse> {
+            return localVarFp.updateWorkSetting(updateWorkSettingRequest, options).then((request) => request(axios, basePath));
         },
     };
 };
@@ -677,7 +2430,63 @@ export class DefaultApi extends BaseAPI {
     }
 
     /**
-     * The new user\'s initial password is its account.
+     * Deletes the todo and adds it as a work record dated `date` (the client\'s today). Answers 400 and keeps the todo when the record would lack a category or hours.
+     * @summary Complete a todo
+     * @param {string} id 
+     * @param {CompleteTodoRequest} completeTodoRequest 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public completeMyTodo(id: string, completeTodoRequest: CompleteTodoRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).completeMyTodo(id, completeTodoRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Add a task category (admin)
+     * @param {CreateWorkOptionRequest} createWorkOptionRequest 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public createCategory(createWorkOptionRequest: CreateWorkOptionRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).createCategory(createWorkOptionRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Add a todo
+     * @param {SaveWorkEntryRequest} saveWorkEntryRequest 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public createMyTodo(saveWorkEntryRequest: SaveWorkEntryRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).createMyTodo(saveWorkEntryRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Add a work record
+     * @param {SaveWorkEntryRequest} saveWorkEntryRequest 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public createMyWorkRecord(saveWorkEntryRequest: SaveWorkEntryRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).createMyWorkRecord(saveWorkEntryRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Add a project (admin)
+     * @param {CreateWorkOptionRequest} createWorkOptionRequest 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public createProject(createWorkOptionRequest: CreateWorkOptionRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).createProject(createWorkOptionRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * The account is stored in upper case. The new user\'s initial password is its account; passwords are case-insensitive.
      * @summary Create a user (admin)
      * @param {CreateUserRequest} createUserRequest 
      * @param {*} [options] Override http request option.
@@ -685,6 +2494,61 @@ export class DefaultApi extends BaseAPI {
      */
     public createUser(createUserRequest: CreateUserRequest, options?: RawAxiosRequestConfig) {
         return DefaultApiFp(this.configuration).createUser(createUserRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Work records and todos using it get an empty categoryId. `cleared` is how many were changed.
+     * @summary Delete a task category (admin)
+     * @param {string} id 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public deleteCategory(id: string, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).deleteCategory(id, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * The government entry of the date, if any, applies again.
+     * @summary Delete a manual holiday entry (admin)
+     * @param {string} date 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public deleteHoliday(date: string, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).deleteHoliday(date, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Delete one of my todos
+     * @param {string} id 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public deleteMyTodo(id: string, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).deleteMyTodo(id, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Delete one of my work records
+     * @param {string} id 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public deleteMyWorkRecord(id: string, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).deleteMyWorkRecord(id, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Work records and todos using it get an empty projectId. `cleared` is how many were changed.
+     * @summary Delete a project (admin)
+     * @param {string} id 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public deleteProject(id: string, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).deleteProject(id, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
@@ -709,6 +2573,75 @@ export class DefaultApi extends BaseAPI {
     }
 
     /**
+     * Records and hours of the 7 days starting at `from`, and the hours to log: 8 per workday, where workdays are Monday-Friday minus holidays plus makeup workdays from the holiday calendar.
+     * @summary Summarize my week
+     * @param {string} from First day of the week (a Monday in the UI), YYYY-MM-DD.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public getWeekSummary(from: string, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).getWeekSummary(from, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Categories and projects include inactive ones, so old entries can still show their names.
+     * @summary Get task categories, projects and the work table setting
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public getWorkOptions(options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).getWorkOptions(options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Every record dated from..to (the frontend asks for one week), newest date first. Allowed for admins, and for everyone when `allowViewAll` is on.
+     * @summary List everyone\'s work records
+     * @param {string} from Inclusive start date (YYYY-MM-DD).
+     * @param {string} to Inclusive end date (YYYY-MM-DD), not before &#x60;from&#x60;.
+     * @param {string} [account] 
+     * @param {string} [categoryId] 
+     * @param {string} [projectId] 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public listAllWorkRecords(from: string, to: string, account?: string, categoryId?: string, projectId?: string, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).listAllWorkRecords(from, to, account, categoryId, projectId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * The effective entry per date (a manual entry wins over the government one).
+     * @summary List a year\'s holiday calendar
+     * @param {string} year 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public listHolidays(year: string, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).listHolidays(year, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Sorted by date, earliest first.
+     * @summary List my todos
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public listMyTodos(options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).listMyTodos(options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Every record dated from..to (the frontend asks for one week), newest date first.
+     * @summary List my work records
+     * @param {string} from Inclusive start date (YYYY-MM-DD).
+     * @param {string} to Inclusive end date (YYYY-MM-DD), not before &#x60;from&#x60;.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public listMyWorkRecords(from: string, to: string, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).listMyWorkRecords(from, to, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
      * 
      * @summary List users (admin)
      * @param {*} [options] Override http request option.
@@ -719,7 +2652,17 @@ export class DefaultApi extends BaseAPI {
     }
 
     /**
-     * The returned JWT carries `sub` (account), `name`, `role` and `i18n` claims.
+     * Allowed for admins, and for everyone when `allowViewAll` is on.
+     * @summary List members for the everyone\'s work table
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public listWorkMembers(options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).listWorkMembers(options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Account and password are case-insensitive (accounts are stored in upper case). The returned JWT carries `sub` (account), `name`, `role` and `i18n` claims.
      * @summary Login
      * @param {LoginRequest} loginRequest 
      * @param {*} [options] Override http request option.
@@ -740,6 +2683,40 @@ export class DefaultApi extends BaseAPI {
     }
 
     /**
+     * Creates or replaces the manual entry of the date; it wins over the government entry.
+     * @summary Set a manual holiday or makeup workday (admin)
+     * @param {string} date 
+     * @param {SaveHolidayRequest} saveHolidayRequest 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public saveHoliday(date: string, saveHolidayRequest: SaveHolidayRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).saveHoliday(date, saveHolidayRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Replaces the government entries of this year and the next; manual entries are kept.
+     * @summary Sync the government office calendar now (admin)
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public syncHolidays(options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).syncHolidays(options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Rename or (de)activate a task category (admin)
+     * @param {string} id 
+     * @param {UpdateWorkOptionRequest} updateWorkOptionRequest 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public updateCategory(id: string, updateWorkOptionRequest: UpdateWorkOptionRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).updateCategory(id, updateWorkOptionRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
      * Returns a new JWT carrying the updated `i18n` claim.
      * @summary Update the logged-in user\'s preferences
      * @param {UpdateMeRequest} updateMeRequest 
@@ -748,6 +2725,42 @@ export class DefaultApi extends BaseAPI {
      */
     public updateMe(updateMeRequest: UpdateMeRequest, options?: RawAxiosRequestConfig) {
         return DefaultApiFp(this.configuration).updateMe(updateMeRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Replace one of my todos
+     * @param {string} id 
+     * @param {SaveWorkEntryRequest} saveWorkEntryRequest 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public updateMyTodo(id: string, saveWorkEntryRequest: SaveWorkEntryRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).updateMyTodo(id, saveWorkEntryRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Replace one of my work records
+     * @param {string} id 
+     * @param {SaveWorkEntryRequest} saveWorkEntryRequest 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public updateMyWorkRecord(id: string, saveWorkEntryRequest: SaveWorkEntryRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).updateMyWorkRecord(id, saveWorkEntryRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Rename or (de)activate a project (admin)
+     * @param {string} id 
+     * @param {UpdateWorkOptionRequest} updateWorkOptionRequest 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public updateProject(id: string, updateWorkOptionRequest: UpdateWorkOptionRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).updateProject(id, updateWorkOptionRequest, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
@@ -760,6 +2773,17 @@ export class DefaultApi extends BaseAPI {
      */
     public updateUser(account: string, updateUserRequest: UpdateUserRequest, options?: RawAxiosRequestConfig) {
         return DefaultApiFp(this.configuration).updateUser(account, updateUserRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Update the work table setting (admin)
+     * @param {UpdateWorkSettingRequest} updateWorkSettingRequest 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public updateWorkSetting(updateWorkSettingRequest: UpdateWorkSettingRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).updateWorkSetting(updateWorkSettingRequest, options).then((request) => request(this.axios, this.basePath));
     }
 }
 

@@ -14,5 +14,11 @@ backend:
 
   frontendFilePath: "build/frontend"
 
+  holiday:
+    # sync the Taiwan government office calendar (national holidays and
+    # makeup workdays) daily; needs internet access
+    sync: true
+    sourceUrl: "https://cdn.jsdelivr.net/gh/ruyut/TaiwanCalendar/data/{year}.json"
+
 logger:
   level: "info"

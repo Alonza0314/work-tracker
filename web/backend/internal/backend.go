@@ -77,6 +77,9 @@ func NewBackend(config *config.Config, logger *logger.BackendLogger) *backend {
 			JwtSecret:    config.Backend.JWT.Secret,
 			JwtExpiresIn: config.Backend.JWT.ExpiresIn,
 
+			HolidaySync:      config.Backend.Holiday.Sync,
+			HolidaySourceUrl: config.Backend.Holiday.SourceUrl,
+
 			SystemContext: sysCtx,
 
 			BackendLogger: logger,
@@ -125,6 +128,8 @@ func (b *backend) returnPages() gin.HandlerFunc {
 func (b *backend) Start() {
 	b.BckLog.Infoln("Starting backend server...")
 
+	b.Processor.StartHolidaySync()
+
 	b.server = &http.Server{
 		Addr:    ":" + strconv.Itoa(b.port),
 		Handler: b.router,
@@ -172,7 +177,11 @@ func addServices(router *gin.Engine, b *backend) {
 
 	addRoutes(apiGroup, b.getAccountRoutes())
 	addRoutes(authGroup, b.getMeRoutes())
+	addRoutes(authGroup, b.getWorkRoutes())
+	addRoutes(authGroup, b.getHolidayRoutes())
 	addRoutes(adminGroup, b.getUserRoutes())
+	addRoutes(adminGroup, b.getWorkSettingRoutes())
+	addRoutes(adminGroup, b.getHolidaySettingRoutes())
 }
 
 func addRoutes(group *gin.RouterGroup, routes util.Routes) {

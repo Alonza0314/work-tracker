@@ -65,10 +65,16 @@ Request flow: `main.go` → `cmd/wt.go` (cobra; loads YAML config via `util.Load
   - Methods take `*model.Request<Action>` and return `(*model.Response<Action>, *model.ErrorDetail)`.
   - `ErrorDetail{HttpStatus, Detail}` carries the HTTP status up to the handler, so processors decide status codes. They never touch gin.
 - **`internal/context/`**: `SystemContext` → `dbContext` → `DbIf`.
-  - `DbIf` (`db.go`) is the storage abstraction. It is composed of per-domain interfaces such as `AccountDbIf`, plus `Release()`. Implementations return the package's sentinel errors (`ErrAccountNotFound`, `ErrAccountExists`).
-  - `newDb` switches on `db.type`; only `"bbolt"` exists (`dbBbolt.go`, one bucket per domain, JSON values).
+  - `DbIf` (`db.go`) is the storage abstraction. It is composed of per-domain interfaces (`AccountDbIf`, `CategoryDbIf`, `ProjectDbIf`, `WorkRecordDbIf`, `TodoDbIf`, `SettingDbIf`), plus `Release()`.
+    - Implementations return the package's sentinel errors (`ErrXxxNotFound`, `ErrAccountExists`).
+    - `Create*` methods of the work interfaces assign a string ID that sorts in creation order.
+  - `newDb` switches on `db.type`; only `"bbolt"` exists: one bucket per domain, JSON values.
+    - **The whole bbolt implementation stays in `dbBbolt.go`** (tests in `dbBbolt_test.go`). Don't split it into more files.
+    - It contains the generic helpers (`bboltGet`, `bboltList`, `bboltPut`, `bboltDelete`, `bboltUpdateAll`, `bboltNextID`) and every domain's methods.
+    - Multi-bucket writes run in a single `db.Update` transaction. Examples: `CompleteTodo`, and `DeleteCategory`/`DeleteProject`, which clear the deleted option from every record and todo.
   - `dbContext` embeds `DbIf`, so its methods are promoted up to `Processor` (`p.GetAccount(...)`).
-  - Adding storage for a new domain: add an `XxxDbIf`, embed it in `DbIf`, implement it on `bboltDb` (create the bucket in `newBboltDb`), and test it in `dbBbolt_test.go`. Also document the bucket's key and value fields in the README's `## DB` section.
+    - **Processor methods must not reuse a DbIf method name**: they would shadow the promoted DB method. That is why the processor has `CreateWorkCategory`, `ListAllWorkRecords` and `SaveWorkSetting` rather than `CreateCategory`, `ListWorkRecords` and `UpdateWorkSetting`.
+  - Adding storage for a new domain: add an `XxxDbIf`, embed it in `DbIf`, implement it on `bboltDb` (add the bucket to `bboltBuckets`), and test it in `dbBbolt_test.go`. Also document the bucket's key and value fields in the README's `## DB` section.
 - **`model/`**: request/response DTOs per domain (`model/<domain>.go`) plus `error.go`.
 - **`logger/`**: `BackendLogger` holds one tagged logger per area (`CfgLog`, `AccLog`, `BckLog`, `ProcLog`, `GinLog`, `CtxLog`, `DbLog`). Tags live in `logger/tag.go`. A new domain gets a new tag constant plus a field wired up in `NewBackendLogger`.
 - **Shutdown chain**: `backend.Stop` → `Processor.Release` → `SystemContext.Release` → `dbContext.release` → `DbIf.Release`. New resources hook into this chain.
@@ -76,12 +82,45 @@ Request flow: `main.go` → `cmd/wt.go` (cobra; loads YAML config via `util.Load
 
 ### Accounts
 
+- **Case-insensitive login**: accounts and passwords both ignore case.
+  - Every account entering the processor goes through `normalizeAccount` (trim + upper case) and is stored and keyed in upper case, including JWT `sub`, URL params and filters.
+  - Passwords are upper-cased before hashing and comparing (`hashPassword` / `checkPassword`).
+  - Hashes made before this change are case-sensitive. `checkPassword` reports them as `legacy` and `Login` re-hashes them on the first successful login.
+  - `InitSystemAdmin` first runs `MigrateAccountCase`, which renames old lower-case accounts via `RenameAccount` (moves the key and re-owns records and todos in one transaction). It refuses to start when two accounts collide.
 - **Stored users**: users live in the `account` bucket as `model.Account` (`account`, `name`, bcrypt `password`, `role` `admin`/`default`, `i18n` `zh-TW`/`en`, `isSystem`). There is no self-registration; admins create users through `/api/users`. A new user's initial password is its account, and the user can change it via `PUT /api/me/password`.
 - **System admin**: `backend.username/password` in the config is the system admin. On startup, `Processor.InitSystemAdmin` creates or updates it in the DB with `isSystem=true`, applies the config password and keeps its i18n. It clears the flag on a previous system admin if the configured name changed.
   - The system admin cannot be updated or deleted via the API and cannot change its own password.
   - Admins cannot delete themselves.
 - **JWT**: tokens carry `sub` (account), `name`, `role` and `i18n` claims. The frontend reads the display name, UI language and role from them. `PUT /api/me` returns a fresh token after an i18n change.
   - Authorization always uses the DB account loaded by the middleware, never the claims.
+
+### Work table
+
+- **Data**: `model/work.go`. Records and todos share `WorkEntry` (date `YYYY-MM-DD`, categoryId, description, hours in (0, 24] in 0.5 steps (`WORK_HOURS_STEP`), projectId) and are owned by an account.
+  - Unset optional fields are `""` / `0`.
+  - Required fields differ per target through `workEntryRule` in `processor/work.go`. Records need category and hours. Todos only need date and description. The project is always optional.
+  - Completing a todo validates the result against the record rule. `RequestCompleteTodo` can fill in the category, hours and project; the frontend opens `CompleteTodoModal` when the todo lacks them.
+- **Categories and projects**: both are `WorkOption`s, handled by shared logic through `workOptionStore` in `processor/work.go`.
+  - Categories have a `color` from `constant.WORK_CATEGORY_COLORS`. New ones get the least used color (`leastUsedColor`); categories without one get a stable color from their ID (`categoryColor`). Projects reject colors.
+  - The frontend maps color names to the `--cat-<name>-bg/-fg/-dot` variables in `index.css` (`categoryColorStyle`, `CategoryChip`, `ColorPicker`). They can be deactivated (hidden from new entries) or deleted; deleting one clears it from existing entries, which become uncategorized or project-less.
+  - Validation rejects inactive options, except one an entry being updated already uses.
+- **Visibility**: `/api/me/...` routes only touch the caller's own records and todos; other people's IDs answer 404.
+  - Everyone's records (`/api/work-records`, `/api/work/members`) are allowed for admins, or for everyone when `setting.work.allowViewAll` is on (`checkViewAll`).
+- **Listing and completion**:
+  - Record lists take a required inclusive `from`/`to` date range and return every matching record (no paging), sorted in the processor (date desc, then createdAt desc), with `total` and `totalHours`.
+  - The frontend always asks for one week, Monday to Sunday: `WeekNavigator` plus `weekStart`/`weekEnd` in `work/format.ts`.
+  - Completing a todo uses the date sent by the client (its "today"), so the user's time zone decides the day.
+
+### Holidays and the weekly target
+
+- A week requires `WORK_DAILY_HOURS` (8) per workday: Monday-Friday, minus `holiday` entries, plus `workday` (makeup) entries from the `holiday` bucket.
+  - `processor/holiday.go` `GetWeekSummary` computes this for `/api/me/week-summary`, which feeds the home page.
+- **Holiday entries**: they are keyed by date *and* source. `effectiveHolidays` resolves each date, with `manual` winning over `gov`.
+  - Admins add and delete only `manual` entries. Deleting one lets the `gov` entry of that date apply again.
+- **Sync**: `StartHolidaySync` (started in `backend.Start`, stopped by `Processor.Release`) fetches the TaiwanCalendar JSON for this year and next on startup and every 24 hours. The URL is `backend.holiday.sourceUrl` in the config, with a `{year}` placeholder.
+  - `ReplaceGovHolidays` swaps a year's `gov` entries in one transaction.
+  - A missing next year (404) is skipped; other failures are only logged (the admin sync button answers 502).
+  - Tests serve a fake calendar with `httptest` and set `p.now`.
 
 ### Backend coding style (follow it exactly)
 
@@ -102,7 +141,19 @@ Request flow: `main.go` → `cmd/wt.go` (cobra; loads YAML config via `util.Load
 
 - **Routing** (`App.tsx`): `/login` is public. Authenticated pages are nested routes under `<RequireAuth><AppLayout/></RequireAuth>`, where `components/layout/AppLayout.tsx` provides the sidebar, the topbar and an `<Outlet/>`.
   - Admin-only pages are also wrapped in `<RequireAdmin>`.
-  - Sidebar entries come from `components/layout/navigation.ts` (`adminOnly` hides an entry from default users), which also supplies the topbar title.
+  - Sidebar entries come from `components/layout/navigation.ts`, which also supplies the topbar title. An entry's `access` is `'admin'`, `'viewAll'` (admins or `allowViewAll`), or everyone.
+  - `<RequireViewAll>` guards the everyone's table and waits for `WorkProvider` to load before deciding.
+- **Home** (`page/home/HomePage.tsx`): the signed-in user's week built from `getWeekSummary`: KPI cards, a progress meter and a per-day column chart (8-hour target ticks, days off shaded). The chart is plain HTML/CSS, with a screen-reader table of the same numbers.
+- **Work** (`work/`): `WorkProvider` (inside `RequireAuth`) loads `getWorkOptions` once. `useWork()` returns `{ categories, projects, allowViewAll, canViewAll, loaded, reload }`; call `reload()` after changing options or settings.
+  - `work/format.ts` has `today()` (local `YYYY-MM-DD`), `optionName` and `selectableOptions`.
+  - The pages are in `page/work/`.
+  - **My Work** (`MyWorkPage`) edits records and todos in place with `EditableWorkTable`, which works like a spreadsheet:
+    - Every cell is an input. Text, number and date cells save on blur or Enter; selects save on change; Escape reverts.
+    - The description is an auto-growing textarea that shows every line: Shift+Enter inserts a line break, and plain Enter still saves.
+    - The first row is a blank "new" row, added with Enter or its + button.
+    - Each save is a full PUT of the row. Rows remount (key includes their values) after the list reloads.
+    - `entryDraft.ts` converts between entries and editable drafts and applies the per-kind required fields (record vs todo) and the half-hour check (`isValidHours`).
+  - `WorkRecordTable` is the read-only table of the everyone's page.
 - **Auth** (`auth/`): `AuthProvider` holds the session parsed from the JWT in `localStorage.token` (`account`, `name`, `role`, `i18n`, expiry). `useAuth()` returns `{ session, isAdmin, signIn(token), signOut(), changeLocale(locale) }`.
   - `signIn` also switches the UI to the token's i18n.
   - `changeLocale` persists the language through `api.updateMe` when signed in.

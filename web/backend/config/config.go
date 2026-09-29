@@ -18,6 +18,15 @@ type BackendIE struct {
 	Db DbIE `yaml:"db" valid:"required"`
 
 	FrontendFilePath string `yaml:"frontendFilePath" valid:"required"`
+
+	Holiday HolidayIE `yaml:"holiday"`
+}
+
+// HolidayIE configures the office calendar sync; SourceUrl has a {year}
+// placeholder.
+type HolidayIE struct {
+	Sync      bool   `yaml:"sync"`
+	SourceUrl string `yaml:"sourceUrl"`
 }
 
 type JWTIE struct {

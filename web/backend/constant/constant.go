@@ -30,3 +30,36 @@ const (
 const (
 	CTX_KEY_ACCOUNT = "account"
 )
+
+// work table
+const (
+	WORK_DATE_LAYOUT = "2006-01-02"
+	WORK_MAX_HOURS   = 24
+	WORK_HOURS_STEP  = 0.5
+)
+
+// WORK_CATEGORY_COLORS is the category color palette; the frontend maps each
+// name to its colors. New categories get the least used one.
+var WORK_CATEGORY_COLORS = []string{
+	"blue",
+	"sky",
+	"teal",
+	"green",
+	"lime",
+	"amber",
+	"orange",
+	"red",
+	"pink",
+	"purple",
+}
+
+// holiday calendar
+const (
+	HOLIDAY_TYPE_HOLIDAY = "holiday" // a day off on a weekday
+	HOLIDAY_TYPE_WORKDAY = "workday" // a working weekend day (makeup day)
+
+	HOLIDAY_SOURCE_GOV    = "gov"    // synced from the government office calendar
+	HOLIDAY_SOURCE_MANUAL = "manual" // set by an admin, wins over gov
+
+	WORK_DAILY_HOURS = 8
+)

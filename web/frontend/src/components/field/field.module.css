@@ -59,3 +59,21 @@
   background-position: right 0.625rem center;
   cursor: pointer;
 }
+
+.textarea {
+  height: auto;
+  min-height: 84px;
+  padding: 0.5rem 0.75rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+/* the native date picker icon follows the text color */
+.control[type='date'] {
+  cursor: pointer;
+}
+
+.control::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.6;
+}

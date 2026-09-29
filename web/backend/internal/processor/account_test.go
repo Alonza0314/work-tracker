@@ -7,11 +7,13 @@ import (
 	"backend/model"
 	"net/http"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	loggergoUtil "github.com/Alonza0314/logger-go/v2/util"
 	"github.com/free-ran-ue/util"
+	"golang.org/x/crypto/bcrypt"
 )
 
 const (
@@ -72,11 +74,7 @@ func mustCreateUser(t *testing.T, p *Processor, account, role string) *model.Acc
 		t.Fatalf("CreateUser(%s): %+v", account, errDetail)
 	}
 
-	acc, err := p.GetAccount(account)
-	if err != nil {
-		t.Fatalf("GetAccount(%s): %v", account, err)
-	}
-	return acc
+	return mustGet(t, p, account)
 }
 
 func expectStatus(t *testing.T, errDetail *model.ErrorDetail, want int) {
@@ -97,11 +95,8 @@ func strPtr(s string) *string {
 func TestInitSystemAdminCreatesSystemAccount(t *testing.T) {
 	p := newTestProcessor(t)
 
-	acc, err := p.GetAccount(testAdminAccount)
-	if err != nil {
-		t.Fatalf("GetAccount: %v", err)
-	}
-	if acc.Role != constant.ROLE_ADMIN || !acc.IsSystem || acc.I18n != constant.DEFAULT_I18N || acc.Name != testAdminAccount {
+	acc := mustGet(t, p, testAdminAccount)
+	if acc.Account != "ADMIN" || acc.Role != constant.ROLE_ADMIN || !acc.IsSystem || acc.I18n != constant.DEFAULT_I18N || acc.Name != "ADMIN" {
 		t.Errorf("system admin = %+v", acc)
 	}
 	if acc.Password == testAdminPassword {
@@ -149,10 +144,11 @@ func TestInitSystemAdminClearsPreviousSystemFlag(t *testing.T) {
 	}
 }
 
+// mustGet reads the stored account; accounts are stored in upper case.
 func mustGet(t *testing.T, p *Processor, account string) *model.Account {
 	t.Helper()
 
-	acc, err := p.GetAccount(account)
+	acc, err := p.GetAccount(strings.ToUpper(account))
 	if err != nil {
 		t.Fatalf("GetAccount(%s): %v", account, err)
 	}
@@ -172,7 +168,7 @@ func TestLoginTokenCarriesRoleAndI18n(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ValidateJWT: %v", err)
 	}
-	if claims["sub"] != "alice" || claims[constant.JWT_CLAIM_NAME] != "alice name" || claims[constant.JWT_CLAIM_ROLE] != constant.ROLE_DEFAULT || claims[constant.JWT_CLAIM_I18N] != constant.I18N_EN {
+	if claims["sub"] != "ALICE" || claims[constant.JWT_CLAIM_NAME] != "alice name" || claims[constant.JWT_CLAIM_ROLE] != constant.ROLE_DEFAULT || claims[constant.JWT_CLAIM_I18N] != constant.I18N_EN {
 		t.Errorf("claims = %v", claims)
 	}
 }
@@ -213,7 +209,7 @@ func TestCreateUserHashesPasswordAndHidesIt(t *testing.T) {
 	if errDetail != nil {
 		t.Fatalf("CreateUser: %+v", errDetail)
 	}
-	if resp.User == nil || resp.User.Account != "alice" || resp.User.Name != "Alice" || resp.User.Role != constant.ROLE_ADMIN || resp.User.IsSystem {
+	if resp.User == nil || resp.User.Account != "ALICE" || resp.User.Name != "Alice" || resp.User.Role != constant.ROLE_ADMIN || resp.User.IsSystem {
 		t.Errorf("response user = %+v", resp.User)
 	}
 	if mustGet(t, p, "alice").Password == "alice" {
@@ -247,7 +243,7 @@ func TestListUsersIncludesSystemAdmin(t *testing.T) {
 	if errDetail != nil {
 		t.Fatalf("ListUsers: %+v", errDetail)
 	}
-	if len(resp.Users) != 2 || resp.Users[0].Account != testAdminAccount || resp.Users[1].Account != "alice" {
+	if len(resp.Users) != 2 || resp.Users[0].Account != "ADMIN" || resp.Users[1].Account != "ALICE" {
 		t.Errorf("users = %+v", resp.Users)
 	}
 }
@@ -354,7 +350,7 @@ func TestGetMeReturnsUser(t *testing.T) {
 	p := newTestProcessor(t)
 
 	resp := p.GetMe(mustGet(t, p, testAdminAccount))
-	if resp.User == nil || resp.User.Account != testAdminAccount || !resp.User.IsSystem {
+	if resp.User == nil || resp.User.Account != "ADMIN" || !resp.User.IsSystem {
 		t.Errorf("user = %+v", resp.User)
 	}
 }
@@ -405,4 +401,177 @@ func TestChangeMyPasswordRejectsSystemAdmin(t *testing.T) {
 
 	_, errDetail := p.ChangeMyPassword(mustGet(t, p, testAdminAccount), &model.RequestChangeMyPassword{OldPassword: testAdminPassword, NewPassword: "changed"})
 	expectStatus(t, errDetail, http.StatusForbidden)
+}
+
+// case-insensitive accounts and passwords
+
+func TestCreateUserStoresUpperCaseAccount(t *testing.T) {
+	p := newTestProcessor(t)
+
+	resp, errDetail := p.CreateUser(&model.RequestCreateUser{Account: " Alice ", Name: "Alice", Role: constant.ROLE_DEFAULT, I18n: constant.I18N_EN})
+	if errDetail != nil {
+		t.Fatalf("CreateUser: %+v", errDetail)
+	}
+	if resp.User.Account != "ALICE" {
+		t.Errorf("account = %q, want ALICE", resp.User.Account)
+	}
+
+	_, errDetail = p.CreateUser(&model.RequestCreateUser{Account: "alice", Name: "Other", Role: constant.ROLE_DEFAULT, I18n: constant.I18N_EN})
+	expectStatus(t, errDetail, http.StatusConflict)
+}
+
+func TestLoginIgnoresCase(t *testing.T) {
+	p := newTestProcessor(t)
+	mustCreateUser(t, p, "alice", constant.ROLE_DEFAULT)
+
+	for _, login := range []model.RequestLogin{
+		{Account: "alice", Password: "alice"},
+		{Account: "ALICE", Password: "Alice"},
+		{Account: "aLiCe", Password: "ALICE"},
+	} {
+		resp, errDetail := p.Login(&login)
+		if errDetail != nil {
+			t.Errorf("Login(%+v): %+v", login, errDetail)
+			continue
+		}
+		claims, _ := util.ValidateJWT(resp.Token, testJwtSecret)
+		if claims["sub"] != "ALICE" {
+			t.Errorf("sub = %v, want ALICE", claims["sub"])
+		}
+	}
+}
+
+func TestChangedPasswordIgnoresCase(t *testing.T) {
+	p := newTestProcessor(t)
+	acc := mustCreateUser(t, p, "alice", constant.ROLE_DEFAULT)
+
+	if _, errDetail := p.ChangeMyPassword(acc, &model.RequestChangeMyPassword{OldPassword: "ALICE", NewPassword: "Secret"}); errDetail != nil {
+		t.Fatalf("ChangeMyPassword: %+v", errDetail)
+	}
+	if _, errDetail := p.Login(&model.RequestLogin{Account: "alice", Password: "sEcReT"}); errDetail != nil {
+		t.Errorf("login with differently cased password: %+v", errDetail)
+	}
+}
+
+func TestLegacyCaseSensitiveHashIsUpgradedOnLogin(t *testing.T) {
+	p := newTestProcessor(t)
+
+	// a hash made before passwords were case-insensitive
+	legacy, err := bcrypt.GenerateFromPassword([]byte("Secret"), bcrypt.MinCost)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := p.CreateAccount(&model.Account{Account: "BOB", Name: "Bob", Password: string(legacy), Role: constant.ROLE_DEFAULT, I18n: constant.I18N_EN}); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, errDetail := p.Login(&model.RequestLogin{Account: "bob", Password: "secret"}); errDetail == nil {
+		t.Fatal("legacy hash matched a differently cased password before upgrade")
+	}
+	if _, errDetail := p.Login(&model.RequestLogin{Account: "bob", Password: "Secret"}); errDetail != nil {
+		t.Fatalf("legacy login: %+v", errDetail)
+	}
+	if _, errDetail := p.Login(&model.RequestLogin{Account: "bob", Password: "SECRET"}); errDetail != nil {
+		t.Errorf("login after upgrade: %+v", errDetail)
+	}
+}
+
+func TestAuthenticateAcceptsLowerCaseSubject(t *testing.T) {
+	p := newTestProcessor(t)
+	mustCreateUser(t, p, "alice", constant.ROLE_DEFAULT)
+
+	acc, errDetail := p.Authenticate("alice")
+	if errDetail != nil || acc.Account != "ALICE" {
+		t.Errorf("Authenticate = %+v, %+v", acc, errDetail)
+	}
+}
+
+func TestUpdateAndDeleteUserIgnoreCase(t *testing.T) {
+	p := newTestProcessor(t)
+	mustCreateUser(t, p, "alice", constant.ROLE_DEFAULT)
+
+	if _, errDetail := p.UpdateUser("alice", &model.RequestUpdateUser{Role: strPtr(constant.ROLE_ADMIN)}); errDetail != nil {
+		t.Fatalf("UpdateUser: %+v", errDetail)
+	}
+	if _, errDetail := p.DeleteUser(mustGet(t, p, testAdminAccount), "Alice"); errDetail != nil {
+		t.Fatalf("DeleteUser: %+v", errDetail)
+	}
+}
+
+func TestSystemAdminAccountIsUpperCase(t *testing.T) {
+	p := newTestProcessor(t)
+
+	if _, err := p.GetAccount("ADMIN"); err != nil {
+		t.Errorf("system admin not stored as ADMIN: %v", err)
+	}
+	if _, errDetail := p.Login(&model.RequestLogin{Account: "admin", Password: testAdminPassword}); errDetail != nil {
+		t.Errorf("admin login: %+v", errDetail)
+	}
+}
+
+func TestMigrateAccountCaseRenamesAccountsAndEntries(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "test.db")
+
+	first := newTestProcessorAt(t, dbPath, testAdminAccount, testAdminPassword)
+	// data written before accounts were upper-cased
+	if err := first.CreateAccount(&model.Account{Account: "carol", Name: "Carol", Role: constant.ROLE_DEFAULT, I18n: constant.I18N_EN}); err != nil {
+		t.Fatal(err)
+	}
+	record := &model.WorkRecord{Account: "carol", WorkEntry: model.WorkEntry{Date: "2026-09-01", Description: "x", Hours: 1}}
+	if err := first.CreateWorkRecord(record); err != nil {
+		t.Fatal(err)
+	}
+	todo := &model.Todo{Account: "carol", WorkEntry: model.WorkEntry{Date: "2026-09-01", Description: "y"}}
+	if err := first.CreateTodo(todo); err != nil {
+		t.Fatal(err)
+	}
+	first.Release()
+
+	second := newTestProcessorAt(t, dbPath, testAdminAccount, testAdminPassword)
+
+	if _, err := second.GetAccount("carol"); err == nil {
+		t.Error("lower-case account still exists")
+	}
+	if acc, err := second.GetAccount("CAROL"); err != nil || acc.Name != "Carol" {
+		t.Errorf("CAROL = %+v, %v", acc, err)
+	}
+	if got, _ := second.GetWorkRecord(record.ID); got.Account != "CAROL" {
+		t.Errorf("record account = %q", got.Account)
+	}
+	if got, _ := second.GetTodo(todo.ID); got.Account != "CAROL" {
+		t.Errorf("todo account = %q", got.Account)
+	}
+}
+
+func TestMigrateAccountCaseFailsOnCollision(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "test.db")
+
+	first := newTestProcessorAt(t, dbPath, testAdminAccount, testAdminPassword)
+	for _, account := range []string{"dave", "Dave"} {
+		if err := first.CreateAccount(&model.Account{Account: account, Role: constant.ROLE_DEFAULT, I18n: constant.I18N_EN}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := first.MigrateAccountCase(); err == nil {
+		t.Error("MigrateAccountCase succeeded despite dave/Dave collision")
+	}
+}
+
+func TestListUsersSortedByAccount(t *testing.T) {
+	p := newTestProcessor(t)
+	mustCreateUser(t, p, "zoe", constant.ROLE_DEFAULT)
+	mustCreateUser(t, p, "aaron", constant.ROLE_DEFAULT)
+	mustCreateUser(t, p, "alice", constant.ROLE_DEFAULT)
+
+	resp, errDetail := p.ListUsers()
+	if errDetail != nil {
+		t.Fatalf("ListUsers: %+v", errDetail)
+	}
+	var got []string
+	for _, user := range resp.Users {
+		got = append(got, user.Account)
+	}
+	if strings.Join(got, ",") != "AARON,ADMIN,ALICE,ZOE" {
+		t.Errorf("users = %v, want sorted by account", got)
+	}
 }

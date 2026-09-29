@@ -10,7 +10,7 @@ paths:
   /api/login:
     post:
       summary: Login
-      description: The returned JWT carries `sub` (account), `name`, `role` and `i18n` claims.
+      description: Account and password are case-insensitive (accounts are stored in upper case). The returned JWT carries `sub` (account), `name`, `role` and `i18n` claims.
       operationId: login
       requestBody:
         required: true
@@ -131,7 +131,7 @@ paths:
           $ref: '#/components/responses/InternalServerError'
     post:
       summary: Create a user (admin)
-      description: The new user's initial password is its account.
+      description: The account is stored in upper case. The new user's initial password is its account; passwords are case-insensitive.
       operationId: createUser
       security:
         - bearerAuth: []
@@ -221,6 +221,626 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /api/work/options:
+    get:
+      summary: Get task categories, projects and the work table setting
+      description: Categories and projects include inactive ones, so old entries can still show their names.
+      operationId: getWorkOptions
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkOptionsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/work/members:
+    get:
+      summary: List members for the everyone's work table
+      description: Allowed for admins, and for everyone when `allowViewAll` is on.
+      operationId: listWorkMembers
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkMembersResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/work-records:
+    get:
+      summary: List everyone's work records
+      description: Every record dated from..to (the frontend asks for one week), newest date first. Allowed for admins, and for everyone when `allowViewAll` is on.
+      operationId: listAllWorkRecords
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+        - name: account
+          in: query
+          schema:
+            type: string
+        - name: categoryId
+          in: query
+          schema:
+            type: string
+        - name: projectId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkRecordListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/me/work-records:
+    get:
+      summary: List my work records
+      description: Every record dated from..to (the frontend asks for one week), newest date first.
+      operationId: listMyWorkRecords
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkRecordListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      summary: Add a work record
+      operationId: createMyWorkRecord
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveWorkEntryRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkRecordResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/me/work-records/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    put:
+      summary: Replace one of my work records
+      operationId: updateMyWorkRecord
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveWorkEntryRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkRecordResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      summary: Delete one of my work records
+      operationId: deleteMyWorkRecord
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/me/todos:
+    get:
+      summary: List my todos
+      description: Sorted by date, earliest first.
+      operationId: listMyTodos
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TodosResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      summary: Add a todo
+      operationId: createMyTodo
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveWorkEntryRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TodoResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/me/todos/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    put:
+      summary: Replace one of my todos
+      operationId: updateMyTodo
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveWorkEntryRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TodoResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      summary: Delete one of my todos
+      operationId: deleteMyTodo
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/me/todos/{id}/complete:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      summary: Complete a todo
+      description: Deletes the todo and adds it as a work record dated `date` (the client's today). Answers 400 and keeps the todo when the record would lack a category or hours.
+      operationId: completeMyTodo
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteTodoRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkRecordResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/categories:
+    post:
+      summary: Add a task category (admin)
+      operationId: createCategory
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWorkOptionRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/WorkOptionOk'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/categories/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    put:
+      summary: Rename or (de)activate a task category (admin)
+      operationId: updateCategory
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWorkOptionRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/WorkOptionOk'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      summary: Delete a task category (admin)
+      description: Work records and todos using it get an empty categoryId. `cleared` is how many were changed.
+      operationId: deleteCategory
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteWorkOptionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/projects:
+    post:
+      summary: Add a project (admin)
+      operationId: createProject
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWorkOptionRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/WorkOptionOk'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/projects/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    put:
+      summary: Rename or (de)activate a project (admin)
+      operationId: updateProject
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWorkOptionRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/WorkOptionOk'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      summary: Delete a project (admin)
+      description: Work records and todos using it get an empty projectId. `cleared` is how many were changed.
+      operationId: deleteProject
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteWorkOptionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/settings/work:
+    put:
+      summary: Update the work table setting (admin)
+      operationId: updateWorkSetting
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWorkSettingRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkSettingResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/me/week-summary:
+    get:
+      summary: Summarize my week
+      description: >-
+        Records and hours of the 7 days starting at `from`, and the hours to
+        log: 8 per workday, where workdays are Monday-Friday minus holidays plus
+        makeup workdays from the holiday calendar.
+      operationId: getWeekSummary
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          required: true
+          description: First day of the week (a Monday in the UI), YYYY-MM-DD.
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeekSummaryResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/holidays:
+    get:
+      summary: List a year's holiday calendar
+      description: The effective entry per date (a manual entry wins over the government one).
+      operationId: listHolidays
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: year
+          in: query
+          required: true
+          schema:
+            type: string
+            example: '2026'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HolidaysResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/holidays/sync:
+    post:
+      summary: Sync the government office calendar now (admin)
+      description: Replaces the government entries of this year and the next; manual entries are kept.
+      operationId: syncHolidays
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncHolidaysResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '502':
+          description: The office calendar could not be fetched
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+
+  /api/holidays/{date}:
+    parameters:
+      - name: date
+        in: path
+        required: true
+        schema:
+          type: string
+          format: date
+    put:
+      summary: Set a manual holiday or makeup workday (admin)
+      description: Creates or replaces the manual entry of the date; it wins over the government entry.
+      operationId: saveHoliday
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveHolidayRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HolidayResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      summary: Delete a manual holiday entry (admin)
+      description: The government entry of the date, if any, applies again.
+      operationId: deleteHoliday
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
 components:
   # add `security: [ { bearerAuth: [] } ]` to any path served behind the
   # backend's auth middleware
@@ -229,6 +849,29 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    From:
+      name: from
+      in: query
+      required: true
+      description: Inclusive start date (YYYY-MM-DD).
+      schema:
+        type: string
+        format: date
+    To:
+      name: to
+      in: query
+      required: true
+      description: Inclusive end date (YYYY-MM-DD), not before `from`.
+      schema:
+        type: string
+        format: date
   responses:
     BadRequest:
       description: Bad Request
@@ -254,6 +897,18 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/MessageResponse'
+    Conflict:
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MessageResponse'
+    WorkOptionOk:
+      description: OK
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/WorkOptionResponse'
     InternalServerError:
       description: Internal Server Error
       content:
@@ -389,6 +1044,395 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/User'
+    CategoryColor:
+      type: string
+      description: Palette color name of a task category. Projects have no color. New categories get the least used color.
+      enum:
+        - blue
+        - sky
+        - teal
+        - green
+        - lime
+        - amber
+        - orange
+        - red
+        - pink
+        - purple
+    WorkOption:
+      type: object
+      required:
+        - id
+        - name
+        - active
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        active:
+          type: boolean
+          description: Inactive options are hidden from new entries but still name old ones.
+        color:
+          $ref: '#/components/schemas/CategoryColor'
+    WorkOptionsResponse:
+      type: object
+      required:
+        - message
+        - categories
+        - projects
+        - allowViewAll
+      properties:
+        message:
+          type: string
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkOption'
+        projects:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkOption'
+        allowViewAll:
+          type: boolean
+    CreateWorkOptionRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+    UpdateWorkOptionRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        active:
+          type: boolean
+        color:
+          $ref: '#/components/schemas/CategoryColor'
+    WorkOptionResponse:
+      type: object
+      required:
+        - message
+        - option
+      properties:
+        message:
+          type: string
+        option:
+          $ref: '#/components/schemas/WorkOption'
+    DeleteWorkOptionResponse:
+      type: object
+      required:
+        - message
+        - cleared
+      properties:
+        message:
+          type: string
+        cleared:
+          type: integer
+          description: Number of work records and todos that no longer reference the deleted option.
+    UpdateWorkSettingRequest:
+      type: object
+      required:
+        - allowViewAll
+      properties:
+        allowViewAll:
+          type: boolean
+    WorkSettingResponse:
+      type: object
+      required:
+        - message
+        - allowViewAll
+      properties:
+        message:
+          type: string
+        allowViewAll:
+          type: boolean
+    SaveWorkEntryRequest:
+      type: object
+      description: >-
+        Work records require categoryId and hours; todos only require date and
+        description. projectId is always optional.
+      required:
+        - date
+        - description
+      properties:
+        date:
+          type: string
+          format: date
+          example: '2026-09-29'
+        categoryId:
+          type: string
+        description:
+          type: string
+        hours:
+          type: number
+          minimum: 0
+          exclusiveMinimum: true
+          maximum: 24
+          multipleOf: 0.5
+        projectId:
+          type: string
+    WorkRecord:
+      type: object
+      description: Optional fields are empty ("" / 0) when not set. Records always have categoryId and hours; todos may not.
+      required:
+        - id
+        - account
+        - date
+        - categoryId
+        - description
+        - hours
+        - projectId
+        - createdAt
+      properties:
+        id:
+          type: string
+        account:
+          type: string
+        date:
+          type: string
+          format: date
+        categoryId:
+          type: string
+        description:
+          type: string
+        hours:
+          type: number
+        projectId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    Todo:
+      $ref: '#/components/schemas/WorkRecord'
+    WorkRecordListResponse:
+      type: object
+      required:
+        - message
+        - records
+        - total
+        - totalHours
+      properties:
+        message:
+          type: string
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkRecord'
+        total:
+          type: integer
+        totalHours:
+          type: number
+    WorkRecordResponse:
+      type: object
+      required:
+        - message
+        - record
+      properties:
+        message:
+          type: string
+        record:
+          $ref: '#/components/schemas/WorkRecord'
+    TodosResponse:
+      type: object
+      required:
+        - message
+        - todos
+      properties:
+        message:
+          type: string
+        todos:
+          type: array
+          items:
+            $ref: '#/components/schemas/Todo'
+    TodoResponse:
+      type: object
+      required:
+        - message
+        - todo
+      properties:
+        message:
+          type: string
+        todo:
+          $ref: '#/components/schemas/Todo'
+    CompleteTodoRequest:
+      type: object
+      description: categoryId, hours and projectId fill or override the todo's; the resulting record needs a category and hours.
+      required:
+        - date
+      properties:
+        date:
+          type: string
+          format: date
+        categoryId:
+          type: string
+        hours:
+          type: number
+          minimum: 0
+          exclusiveMinimum: true
+          maximum: 24
+          multipleOf: 0.5
+        projectId:
+          type: string
+    WorkMember:
+      type: object
+      required:
+        - account
+        - name
+      properties:
+        account:
+          type: string
+        name:
+          type: string
+    WorkMembersResponse:
+      type: object
+      required:
+        - message
+        - members
+      properties:
+        message:
+          type: string
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkMember'
+    HolidayType:
+      type: string
+      description: holiday = a weekday off; workday = a working weekend day.
+      enum:
+        - holiday
+        - workday
+    HolidaySource:
+      type: string
+      description: gov = synced from the office calendar; manual = set by an admin (wins over gov).
+      enum:
+        - gov
+        - manual
+    Holiday:
+      type: object
+      required:
+        - date
+        - name
+        - type
+        - source
+      properties:
+        date:
+          type: string
+          format: date
+        name:
+          type: string
+        type:
+          $ref: '#/components/schemas/HolidayType'
+        source:
+          $ref: '#/components/schemas/HolidaySource'
+    HolidaysResponse:
+      type: object
+      required:
+        - message
+        - holidays
+      properties:
+        message:
+          type: string
+        holidays:
+          type: array
+          items:
+            $ref: '#/components/schemas/Holiday'
+        lastSyncedAt:
+          type: string
+          format: date-time
+          description: Missing before the first successful sync.
+    SaveHolidayRequest:
+      type: object
+      required:
+        - name
+        - type
+      properties:
+        name:
+          type: string
+        type:
+          $ref: '#/components/schemas/HolidayType'
+    HolidayResponse:
+      type: object
+      required:
+        - message
+        - holiday
+      properties:
+        message:
+          type: string
+        holiday:
+          $ref: '#/components/schemas/Holiday'
+    SyncHolidaysResponse:
+      type: object
+      required:
+        - message
+        - synced
+        - lastSyncedAt
+      properties:
+        message:
+          type: string
+        synced:
+          type: integer
+        lastSyncedAt:
+          type: string
+          format: date-time
+    WeekDay:
+      type: object
+      required:
+        - date
+        - workday
+        - loggedHours
+        - requiredHours
+      properties:
+        date:
+          type: string
+          format: date
+        workday:
+          type: boolean
+        holidayName:
+          type: string
+          description: Name of the holiday or makeup workday on this date.
+        loggedHours:
+          type: number
+        requiredHours:
+          type: number
+    WeekSummaryResponse:
+      type: object
+      required:
+        - message
+        - from
+        - to
+        - recordCount
+        - loggedHours
+        - requiredHours
+        - remainingHours
+        - daysOff
+        - days
+      properties:
+        message:
+          type: string
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        recordCount:
+          type: integer
+        loggedHours:
+          type: number
+        requiredHours:
+          type: number
+        remainingHours:
+          type: number
+          description: requiredHours - loggedHours, never below 0.
+        daysOff:
+          type: integer
+          description: Weekdays off in the week.
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/WeekDay'
     MessageResponse:
       type: object
       properties:

@@ -3,7 +3,8 @@ import { LogOut, X } from 'lucide-react'
 import Logo from '../logo/Logo'
 import { useAuth } from '../../auth/useAuth'
 import { useI18n } from '../../i18n/useI18n'
-import { NAV_ITEMS } from './navigation'
+import { useWork } from '../../work/useWork'
+import { NAV_ITEMS, canAccess } from './navigation'
 import styles from './sidebar.module.css'
 
 interface SidebarProps {
@@ -15,6 +16,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   const navigate = useNavigate()
   const { t } = useI18n()
   const { session, isAdmin, signOut } = useAuth()
+  const { canViewAll } = useWork()
   const name = session?.name ?? ''
 
   async function handleLogout() {
@@ -37,7 +39,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
         <nav className={styles.nav}>
           <ul className={styles.list}>
-            {NAV_ITEMS.filter((item) => isAdmin || !item.adminOnly).map(({ to, label, icon: Icon }) => (
+            {NAV_ITEMS.filter((item) => canAccess(item, isAdmin, canViewAll)).map(({ to, label, icon: Icon }) => (
               <li key={to}>
                 <NavLink
                   to={to}

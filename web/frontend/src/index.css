@@ -63,6 +63,38 @@
   --warning-50: #fffbeb;
   --warning-600: #d97706;
 
+  /* task category palette (names match constant.WORK_CATEGORY_COLORS) */
+  --cat-blue-bg: #e8f0fe;
+  --cat-blue-fg: #1a4fb8;
+  --cat-blue-dot: #3b7bef;
+  --cat-sky-bg: #e3f4fb;
+  --cat-sky-fg: #0b6285;
+  --cat-sky-dot: #1ea3d6;
+  --cat-teal-bg: #e1f5f2;
+  --cat-teal-fg: #0d6b61;
+  --cat-teal-dot: #16a394;
+  --cat-green-bg: #e6f5ea;
+  --cat-green-fg: #1d6b35;
+  --cat-green-dot: #34a853;
+  --cat-lime-bg: #eef6dc;
+  --cat-lime-fg: #4a6310;
+  --cat-lime-dot: #84b523;
+  --cat-amber-bg: #fdf3d7;
+  --cat-amber-fg: #855c05;
+  --cat-amber-dot: #e0a712;
+  --cat-orange-bg: #fdecdf;
+  --cat-orange-fg: #9a4410;
+  --cat-orange-dot: #ef7d2c;
+  --cat-red-bg: #fde8e8;
+  --cat-red-fg: #a8232a;
+  --cat-red-dot: #e5484d;
+  --cat-pink-bg: #fce8f3;
+  --cat-pink-fg: #9c2366;
+  --cat-pink-dot: #e0559f;
+  --cat-purple-bg: #f0eafd;
+  --cat-purple-fg: #5b34b0;
+  --cat-purple-dot: #8b5cf6;
+
   /* semantic */
   --color-bg: var(--gray-50);
   --color-surface: var(--gray-0);

@@ -12,6 +12,7 @@ type BackendLogger struct {
 	CfgLog  loggergoModel.LoggerInterface
 	AccLog  loggergoModel.LoggerInterface
 	UsrLog  loggergoModel.LoggerInterface
+	WrkLog  loggergoModel.LoggerInterface
 	BckLog  loggergoModel.LoggerInterface
 	ProcLog loggergoModel.LoggerInterface
 	GinLog  loggergoModel.LoggerInterface
@@ -29,6 +30,7 @@ func NewBackendLogger(level loggergoUtil.LogLevelString, filePath string, debugM
 		CfgLog:  logger.WithTags(CFG_LOG),
 		AccLog:  logger.WithTags(ACC_LOG),
 		UsrLog:  logger.WithTags(USR_LOG),
+		WrkLog:  logger.WithTags(WRK_LOG),
 		BckLog:  logger.WithTags(BCK_LOG),
 		ProcLog: logger.WithTags(PROC_LOG),
 		GinLog:  logger.WithTags(API_LOG),

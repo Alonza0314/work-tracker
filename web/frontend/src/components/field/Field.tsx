@@ -1,4 +1,4 @@
-import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react'
+import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react'
 import styles from './field.module.css'
 
 interface FieldProps {
@@ -24,4 +24,8 @@ export function TextInput(props: InputHTMLAttributes<HTMLInputElement>) {
 
 export function SelectInput(props: SelectHTMLAttributes<HTMLSelectElement>) {
   return <select {...props} className={`${styles.control} ${styles.select}`} />
+}
+
+export function TextArea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  return <textarea {...props} className={`${styles.control} ${styles.textarea}`} />
 }
