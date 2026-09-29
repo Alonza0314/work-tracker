@@ -85,6 +85,12 @@ export default function AllWorkPage() {
     return members.find((member) => member.account === account)?.name || account
   }
 
+  // shown in the table and the member filter: ACCOUNT/Name
+  function memberLabel(account: string): string {
+    const name = members.find((member) => member.account === account)?.name
+    return name ? `${account}/${name}` : account
+  }
+
   const isFiltered = Object.values(filters).some((value) => value !== '')
   const [exporting, setExporting] = useState(false)
 
@@ -187,7 +193,7 @@ export default function AllWorkPage() {
             <SelectInput id="filter-member" value={filters.account} onChange={(event) => updateFilter('account', event.target.value)}>
               <option value="">{t('all.allMembers')}</option>
               {members.map((member) => (
-                <option key={member.account} value={member.account}>{member.name || member.account}</option>
+                <option key={member.account} value={member.account}>{memberLabel(member.account)}</option>
               ))}
             </SelectInput>
           </Field>
@@ -234,7 +240,7 @@ export default function AllWorkPage() {
           </div>
         </div>
 
-        <WorkRecordTable records={result?.records ?? []} memberName={memberName} emptyText={t('records.empty')} />
+        <WorkRecordTable records={result?.records ?? []} memberName={memberLabel} emptyText={t('records.empty')} />
       </Panel>
     </div>
   )

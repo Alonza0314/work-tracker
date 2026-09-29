@@ -2,7 +2,10 @@ import axios from 'axios'
 import { Configuration, DefaultApi } from './api'
 import { clearToken, getToken, markSessionExpired } from './auth/session'
 
-const apiBasePath = import.meta.env.VITE_API_BASE_URL || `${window.location.protocol}//${window.location.hostname}:8888`
+// The backend serves this app and the API from the same origin, so the API is
+// wherever the page is (any host, port or reverse proxy). `yarn dev` proxies
+// /api to the backend (vite.config.ts); VITE_API_BASE_URL overrides both.
+const apiBasePath = import.meta.env.VITE_API_BASE_URL || window.location.origin
 
 const axiosInstance = axios.create()
 

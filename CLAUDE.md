@@ -16,7 +16,7 @@ Run from the repo root unless noted.
 | Go tests | `cd web/backend && go test ./...` |
 | Single Go test | `cd web/backend && go test ./internal/processor -run TestName -v` |
 | Regenerate frontend API client (needs Docker) | `make openapi` |
-| Frontend dev server | `cd web/frontend && yarn dev` (talks to the backend at `<host>:8888`, or `VITE_API_BASE_URL`) |
+| Frontend dev server | `cd web/frontend && yarn dev` (proxies `/api` to `http://localhost:8888`; set `VITE_API_PROXY` for another backend) |
 | Frontend type-check + build | `cd web/frontend && yarn build` |
 | Docker image / clean build + db | `make docker` / `make clean` |
 
@@ -43,7 +43,7 @@ Every new endpoint goes through all of these steps. The frontend never calls the
    catch (error: unknown) { addError(extractErrorMessage(error, t('login.failed'))) }
    ```
    `src/apiClient.ts` handles the rest:
-   - It builds a single `DefaultApi` with `basePath` = `VITE_API_BASE_URL` or `<protocol>//<host>:8888`. The `servers` URL in openapi.yaml is ignored.
+   - It builds a single `DefaultApi` with `basePath` = `VITE_API_BASE_URL`, or else the page's own origin, because the backend serves the app and the API together. Never hard-code a host or port. The `servers` URL in openapi.yaml is ignored.
    - It supplies the bearer token from `localStorage.token`.
    - On any 401 outside `/login` it clears the token, marks the session as expired (`markSessionExpired`, in sessionStorage) and hard-redirects to `/login`, which then shows a "sign in again" notice once (`takeSessionExpired`). A wrong password on the login page is a 401 too, but it is not marked.
 
