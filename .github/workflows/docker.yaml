@@ -21,13 +21,38 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build image
-        run: ./docker/build_image.sh test
+        run: make dockertest
 
       - name: Test Docker image
         run: |
           docker images
           docker run --rm ${{ env.IMAGE_NAME }}:test ls /wt/wt
           docker run --rm ${{ env.IMAGE_NAME }}:test ls /wt/frontend
+
+      - name: Set up Go for the integration test
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: integration-test/goTest/go.mod
+          cache: false
+
+      # each case runs against a fresh compose of the test image; the first
+      # failing case stops the step and fails the job
+      - name: Integration test
+        run: |
+          ./integration-test/test.sh TestLogin
+          ./integration-test/test.sh TestFrontend
+          ./integration-test/test.sh TestProfile
+          ./integration-test/test.sh TestUserManagement
+          ./integration-test/test.sh TestWorkOptions
+          ./integration-test/test.sh TestWorkRecords
+          ./integration-test/test.sh TestTodos
+          ./integration-test/test.sh TestEveryonesWork
+          ./integration-test/test.sh TestWeekSummary
+          ./integration-test/test.sh TestHolidays
+          ./integration-test/test.sh TestMissingEntries
+          ./integration-test/test.sh TestApiTokens
+          ./integration-test/test.sh TestBackupRestore
+          ./integration-test/test.sh TestReset
 
   version-release:
     name: Release Version Image

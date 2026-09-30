@@ -19,9 +19,14 @@ Run from the repo root unless noted.
 | Frontend dev server | `cd web/frontend && yarn dev` (proxies `/api` to `http://localhost:8888`; set `VITE_API_PROXY` for another backend) |
 | Frontend type-check + build | `cd web/frontend && yarn build` |
 | Docker image / clean build + db | `make docker` / `make clean` |
+| Integration test (Docker) | `make dockertest`, then `cd integration-test && ./test.sh TestAll` (or `./test.sh TestLogin`, `./test.sh list`) |
 
 - `yarn lint` does not run at the moment: `eslint.config.js` uses `reactHooks.configs['recommended-latest']`, and eslint-plugin-react-hooks v7 no longer supports that key.
-- There are no Go tests yet. CI (`.github/workflows`) runs `go build`, `go test`, `make`, golangci-lint and `yarn build`.
+- Unit tests: `internal/context/dbBbolt_test.go` (storage) and `internal/processor/*_test.go` (business rules). CI (`.github/workflows`) runs `go build`, `go test`, `make`, golangci-lint and `yarn build`.
+- **Integration tests**: they live in `integration-test/goTest/`, a separate stdlib-only module that calls the HTTP API of the Docker image.
+  - Each top-level `Test*` gets a fresh compose from `test.sh` (port 18888, data under `/tmp/wt-integration-test/<Test>`); split it into `t.Run` subtests.
+  - When adding a feature, add or extend a `Test*` case and its row in the README's "Integration test" table.
+  - CI runs every case by name in the single "Integration test" step of the `build` job in `.github/workflows/docker.yaml`, one `./integration-test/test.sh TestXxx` line per case, never `TestAll`. A new `Test*` needs its line there too.
 - Commit messages must follow Conventional Commits (`feat:`, `fix:`, `style:`, `chore:`…). CI checks this.
 - `DB_PATH` in `Makefile` must stay in sync with `backend.db.path` in `config.yaml`. The Docker setup uses `docker/config.yaml` instead.
 

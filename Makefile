@@ -1,5 +1,4 @@
-.PHONY: backend frontend openapi run test tidy lint clean docker
-
+.PHONY: backend frontend openapi run test tidy lint clean docker dockertest
 BACKEND_SRC := $(shell find web/backend -name "*.go")
 FRONTEND_SRC := $(shell find web/frontend -type f ! -path "web/frontend/dist/*" ! -path "web/frontend/node_modules/*")
 FRONTEND_STAMP := build/frontend/.stamp
@@ -68,3 +67,6 @@ clean:
 
 docker:
 	./docker/build_image.sh
+
+dockertest:
+	./docker/build_image.sh test

@@ -1,0 +1,24 @@
+# config of the integration-test compose (mounted read-only at /wt/config.yaml)
+backend:
+  username: "admin"
+  password: "0000"
+
+  port: 8888
+
+  jwt:
+    secret: "integration-test"
+    expiresIn: 1h
+
+  db:
+    type: "bbolt"
+    path: "./db/wt.db"
+
+  frontendFilePath: "frontend"
+
+  holiday:
+    # the fake calendar that TestHolidays serves on the host (goTest/calendar_test.go)
+    sync: true
+    sourceUrl: "http://host.docker.internal:18889/{year}.json"
+
+logger:
+  level: "info"

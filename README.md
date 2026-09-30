@@ -259,3 +259,59 @@ Admins open **System** in the sidebar (above their name):
 - **Reset**: `POST /api/system/reset` with `{"confirm": "RESET"}`. It deletes all data like a fresh install: only the config admin is left, and the government holidays sync again.
 
 In the UI, restore and reset need `RESTORE` / `RESET` typed in, and they sign everyone out.
+
+## Integration test
+
+`integration-test/` tests the whole app, the way a user would, over HTTP against the Docker image. The Go tests live in `integration-test/goTest/`, a separate module that only uses the standard library.
+
+### Run
+
+Requirements: Docker with Compose, Go and curl on the host.
+
+```bash
+make dockertest                 # build the test image alonza0314/work-tracker:test
+cd integration-test
+./test.sh list                  # list the test cases
+./test.sh TestLogin             # run one test case
+./test.sh TestAll               # run every test case
+```
+
+Every `Test*` case gets a fresh app:
+
+1. `test.sh` starts `docker-compose.yaml` with the test image on port 18888.
+2. The case runs with `go test -run '^TestXxx$'`.
+3. The compose is removed before the next case, and on failure its log is printed.
+
+`TestAll` ends with a pass/fail summary and exits non-zero if a case failed.
+
+CI runs the cases in the "Integration test" step of the `Build Check` job in `.github/workflows/docker.yaml`, after `make dockertest`. That step has one `./integration-test/test.sh TestXxx` line per case (not `TestAll`), and the first failing case stops it and fails the job. A new `Test*` case needs its line there as well.
+
+- **Config**: the compose mounts `integration-test/config/config.yaml`.
+- **Data**: the db goes to `/tmp/wt-integration-test/<TestName>/` and is deleted after the case, so nothing is written to the repo or the host's own `/tmp/wt.db`. The container runs as the host user, so these files stay removable.
+- **Time zone**: the host's time zone is mounted into the container, so "today" is the same day for the app and the tests.
+- **Holiday calendar**: `TestHolidays` serves a fake one on host port 18889, and the app reaches it through `host.docker.internal`. No internet access is needed.
+
+| Variable | Default | Meaning |
+| - | - | - |
+| `WT_TEST_IMAGE` | `alonza0314/work-tracker:test` | image under test |
+| `WT_TEST_PORT` | `18888` | host port of the app |
+| `WT_TEST_ROOT` | `/tmp/wt-integration-test` | where per-case data go |
+
+### Test cases
+
+| Case | File | Covers |
+| - | - | - |
+| `TestApiTokens` | `apitoken_test.go` | creating a token (shown once, `wt_` prefix, 365 days by default); 30/60/180-day lifetimes; bad lifetime or blank name → 400; using it as a bearer credential; same permissions as the account (admin routes → 403 for a default user); the list shows prefix and last use, never the token; only the owner revokes (others → 404) and a revoked token → 401; at most 10 per account (→ 409); deleting the account invalidates its tokens |
+| `TestFrontend` | `frontend_test.go` | `/` serves the app; client routes (`/login`, `/work/me`, `/users`) fall back to `index.html`; static files are served |
+| `TestHolidays` | `holidays_test.go` | syncing the (fake) government calendar stores weekday days off and weekend makeup days, and ignores weekend holidays; a failed sync → 502 and keeps the calendar; a synced day off makes the week need 32 hours; an admin entry wins over the government one, and deleting it brings the government entry back; validation (bad date, blank name, bad type, bad year → 400); default users can read but not change the calendar (→ 403) |
+| `TestLogin` | `login_test.go` | the config admin signs in and the JWT carries sub/name/role/i18n; account and password ignore case; wrong password or unknown account → 401; missing fields → 400; protected routes need a valid JWT or API token (→ 401); logout → 204 |
+| `TestMissingEntries` | `missing_test.go` | workdays without a work record are listed per member, most missing first; todos don't count; the system admin is not checked; days before an account was created are skipped; a day off is not a missed day; checking starts at the work start date; default users need `allowViewAll` (→ 403); bad date → 400 |
+| `TestProfile` | `profile_test.go` | reading your profile; changing the UI language returns a token carrying it (unsupported language → 400); changing the password (wrong old password → 403; the new one ignores case); the system admin's password comes from the config (→ 403) |
+| `TestBackupRestore` | `system_test.go` | downloading a backup zip (manifest plus one JSON file per table); only admins back up or restore; restoring brings back users, records and API tokens, and new IDs continue after the restored ones; non-zip, another app's zip or a missing file field → 400 without changing data |
+| `TestReset` | `system_test.go` | a reset needs `{"confirm": "RESET"}` (→ 400) and an admin (→ 403); it leaves only the config admin and old tokens stop working |
+| `TestTodos` | `todos_test.go` | a todo needs only date and description; todos are listed by date; completing one creates a work record on the given date; a todo without category or hours needs them to complete (→ 400, todo kept); update and delete; other people's todos → 404 |
+| `TestUserManagement` | `users_test.go` | creating a user stores the account in upper case with the account as initial password; duplicates → 409, blank name or unknown role → 400; the list is sorted by account; partial updates and password reset; the system admin can't be changed or deleted and admins can't delete themselves (→ 403); default users can't manage users (→ 403); a deleted user's token → 401 |
+| `TestEveryonesWork` | `viewall_test.go` | default users need `allowViewAll` for everyone's records, members and missed entries (→ 403); admins see everyone's records with totals; filters by member (any case), category and project; quarter ranges; the members list; switching `allowViewAll` on and off |
+| `TestWeekSummary` | `weeksummary_test.go` | a plain week needs 40 hours, with per-day logged/required hours; a Friday off → 32 hours; a makeup Saturday adds 8; remaining hours never go below zero; bad date → 400 |
+| `TestWorkOptions` | `workoptions_test.go` | new categories get the least used colors; names are unique ignoring case and not blank; rename, recolor and deactivate (unknown color → 400, project color → 400, unknown ID → 404); everyone reads the options, only admins change them; deleting a category or project clears it from records and todos; work settings update only the given fields |
+| `TestWorkRecords` | `workrecords_test.go` | validation (category and hours required, half-hour steps, dates, description, unknown or inactive options); the project is optional; multi-line descriptions; listing a range newest first with totals; a range is required and must not be reversed; update and delete; a record keeps a category deactivated after it was chosen; other people's records → 404 |

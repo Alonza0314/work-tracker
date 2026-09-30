@@ -1,0 +1,20 @@
+# Started by test.sh for each Test* case; see README.md "Integration test".
+name: wt-integration-test
+
+services:
+  wt:
+    image: ${WT_TEST_IMAGE:-alonza0314/work-tracker:test}
+    command: ./wt -c config.yaml
+    # run as the host user so the db written under /tmp is removable by them
+    user: "${WT_TEST_UID:?set by test.sh}:${WT_TEST_GID:?set by test.sh}"
+    ports:
+      - "${WT_TEST_PORT:-18888}:8888"
+    volumes:
+      - ./config.yaml:/wt/config.yaml:ro
+      # per-case data lives under /tmp, never in the repo
+      - ${WT_TEST_DATA:?set by test.sh}:/wt/db
+      # the host's time zone, so "today" is the same day for the app and the tests
+      - /etc/localtime:/etc/localtime:ro
+    extra_hosts:
+      # the Go tests serve a fake holiday calendar on the host
+      - "host.docker.internal:host-gateway"
