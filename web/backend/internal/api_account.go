@@ -41,6 +41,24 @@ func (b *backend) getMeRoutes() util.Routes {
 			HandlerFunc: withLogging("UpdateMe", b.AccLog, b.handleUpdateMe),
 		},
 		{
+			Name:        "ListMyApiTokens",
+			Method:      http.MethodGet,
+			Pattern:     "/me/api-tokens",
+			HandlerFunc: withLogging("ListMyApiTokens", b.AccLog, b.handleListMyApiTokens),
+		},
+		{
+			Name:        "CreateMyApiToken",
+			Method:      http.MethodPost,
+			Pattern:     "/me/api-tokens",
+			HandlerFunc: withLogging("CreateMyApiToken", b.AccLog, b.handleCreateMyApiToken),
+		},
+		{
+			Name:        "DeleteMyApiToken",
+			Method:      http.MethodDelete,
+			Pattern:     "/me/api-tokens/:id",
+			HandlerFunc: withLogging("DeleteMyApiToken", b.AccLog, b.handleDeleteMyApiToken),
+		},
+		{
 			Name:        "ChangeMyPassword",
 			Method:      http.MethodPut,
 			Pattern:     "/me/password",
@@ -115,6 +133,54 @@ func (b *backend) handleChangeMyPassword(c *gin.Context) {
 	if errDetail != nil {
 		b.AccLog.Warnf("Change password failed for %s: %s", c.ClientIP(), errDetail.Detail)
 		c.JSON(errDetail.HttpStatus, model.ResponseChangeMyPassword{
+			Message: errDetail.Detail,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response)
+}
+
+func (b *backend) handleListMyApiTokens(c *gin.Context) {
+	response, errDetail := b.Processor.ListMyApiTokens(currentAccount(c))
+	if errDetail != nil {
+		b.AccLog.Warnf("List API tokens failed for %s: %s", c.ClientIP(), errDetail.Detail)
+		c.JSON(errDetail.HttpStatus, model.ResponseApiTokens{
+			Message: errDetail.Detail,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response)
+}
+
+func (b *backend) handleCreateMyApiToken(c *gin.Context) {
+	var req model.RequestCreateApiToken
+	if err := c.ShouldBindJSON(&req); err != nil {
+		b.AccLog.Warnf("Invalid create API token request from %s: %v\n", c.ClientIP(), err)
+		c.JSON(http.StatusBadRequest, model.ResponseCreateApiToken{
+			Message: "Invalid request",
+		})
+		return
+	}
+
+	response, errDetail := b.Processor.CreateMyApiToken(currentAccount(c), &req)
+	if errDetail != nil {
+		b.AccLog.Warnf("Create API token failed for %s: %s", c.ClientIP(), errDetail.Detail)
+		c.JSON(errDetail.HttpStatus, model.ResponseCreateApiToken{
+			Message: errDetail.Detail,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response)
+}
+
+func (b *backend) handleDeleteMyApiToken(c *gin.Context) {
+	response, errDetail := b.Processor.DeleteMyApiToken(currentAccount(c), c.Param("id"))
+	if errDetail != nil {
+		b.AccLog.Warnf("Delete API token failed for %s: %s", c.ClientIP(), errDetail.Detail)
+		c.JSON(errDetail.HttpStatus, model.ResponseDeleteApiToken{
 			Message: errDetail.Detail,
 		})
 		return

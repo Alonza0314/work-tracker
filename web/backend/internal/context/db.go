@@ -15,6 +15,7 @@ var (
 	ErrWorkRecordNotFound = errors.New("work record not found")
 	ErrTodoNotFound       = errors.New("todo not found")
 	ErrHolidayNotFound    = errors.New("holiday not found")
+	ErrApiTokenNotFound   = errors.New("api token not found")
 
 	errSettingNotFound = errors.New("setting not found")
 )
@@ -29,6 +30,7 @@ type DbIf interface {
 	TodoDbIf
 	SettingDbIf
 	HolidayDbIf
+	ApiTokenDbIf
 	BackupDbIf
 
 	Release() error
@@ -39,10 +41,11 @@ type AccountDbIf interface {
 	ListAccounts() ([]*model.Account, error)
 	CreateAccount(acc *model.Account) error
 	UpdateAccount(acc *model.Account) error
+	// DeleteAccount also deletes the account's API tokens, in one transaction.
 	DeleteAccount(account string) error
 	// RenameAccount moves the account to a new key and re-owns its work
-	// records and todos, in one transaction. It fails with ErrAccountExists
-	// when newAccount is taken.
+	// records, todos and API tokens, in one transaction. It fails with
+	// ErrAccountExists when newAccount is taken.
 	RenameAccount(oldAccount, newAccount string) error
 }
 
@@ -107,6 +110,18 @@ type HolidayDbIf interface {
 	// GetHolidaySyncedAt returns the zero time before the first sync.
 	GetHolidaySyncedAt() (time.Time, error)
 	SetHolidaySyncedAt(at time.Time) error
+}
+
+// ApiTokenDbIf stores personal access tokens keyed by the SHA-256 of the
+// token (model.ApiToken.Hash); the token itself is never stored.
+type ApiTokenDbIf interface {
+	GetApiToken(hash string) (*model.ApiToken, error)
+	ListApiTokens(account string) ([]*model.ApiToken, error)
+	// CreateApiToken assigns the new ID to token.
+	CreateApiToken(token *model.ApiToken) error
+	DeleteApiToken(id string) error
+	// TouchApiToken records when the token was last used.
+	TouchApiToken(hash string, at time.Time) error
 }
 
 // BackupDbIf moves the whole database in and out as a model.Backup.

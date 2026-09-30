@@ -11,6 +11,7 @@ import Panel from '../../components/panel/Panel'
 import { useNotifications } from '../../hooks/useNotifications'
 import { LOCALES, isLocale } from '../../i18n/context'
 import { useI18n } from '../../i18n/useI18n'
+import ApiTokenPanel from './ApiTokenPanel'
 import styles from './profile-page.module.css'
 
 export default function ProfilePage() {
@@ -171,6 +172,8 @@ export default function ProfilePage() {
           </form>
         )}
       </Panel>
+
+      <ApiTokenPanel onError={addError} onSuccess={addSuccess} />
     </div>
   )
 }

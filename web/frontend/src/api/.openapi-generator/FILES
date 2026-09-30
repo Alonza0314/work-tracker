@@ -4,9 +4,13 @@ api.ts
 base.ts
 common.ts
 configuration.ts
+docs/ApiTokenInfo.md
+docs/ApiTokensResponse.md
 docs/CategoryColor.md
 docs/ChangeMyPasswordRequest.md
 docs/CompleteTodoRequest.md
+docs/CreateApiTokenRequest.md
+docs/CreateApiTokenResponse.md
 docs/CreateUserRequest.md
 docs/CreateWorkOptionRequest.md
 docs/DefaultApi.md

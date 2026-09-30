@@ -972,6 +972,77 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /api/me/api-tokens:
+    get:
+      summary: List my API tokens
+      description: The tokens themselves are never returned again; only their prefix.
+      operationId: listMyApiTokens
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTokensResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      summary: Create an API token
+      description: >-
+        Returns the token (wt_...) once; only its SHA-256 is stored. Use it as
+        `Authorization: Bearer <token>`; it has the same permissions as its
+        account. At most 10 per account.
+      operationId: createMyApiToken
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateApiTokenRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateApiTokenResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/me/api-tokens/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    delete:
+      summary: Revoke one of my API tokens
+      operationId: deleteMyApiToken
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
 components:
   # add `security: [ { bearerAuth: [] } ]` to any path served behind the
   # backend's auth middleware
@@ -979,7 +1050,7 @@ components:
     bearerAuth:
       type: http
       scheme: bearer
-      bearerFormat: JWT
+      description: A JWT from /api/login, or a personal API token (wt_...) from /api/me/api-tokens.
   parameters:
     Id:
       name: id
@@ -1629,6 +1700,74 @@ components:
           type: string
           description: Must be RESET.
           example: RESET
+    ApiTokenInfo:
+      type: object
+      required:
+        - id
+        - name
+        - prefix
+        - createdAt
+        - expiresAt
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        prefix:
+          type: string
+          description: The first characters of the token, to recognize it.
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        lastUsedAt:
+          type: string
+          format: date-time
+          description: Missing until the token is first used; updated at most once a minute.
+    ApiTokensResponse:
+      type: object
+      required:
+        - message
+        - tokens
+      properties:
+        message:
+          type: string
+        tokens:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiTokenInfo'
+    CreateApiTokenRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: Claude Code skill
+        expiresInDays:
+          type: integer
+          description: Defaults to 365.
+          enum:
+            - 30
+            - 60
+            - 180
+            - 365
+    CreateApiTokenResponse:
+      type: object
+      required:
+        - message
+        - token
+        - apiToken
+      properties:
+        message:
+          type: string
+        token:
+          type: string
+          description: The token itself, shown only in this response.
+        apiToken:
+          $ref: '#/components/schemas/ApiTokenInfo'
     MessageResponse:
       type: object
       properties:

@@ -46,3 +46,112 @@
   gap: 0.5rem;
   color: var(--color-text-secondary);
 }
+
+/* API tokens */
+
+.tokenEmpty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1.75rem 1rem;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.tokenList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tokenItem {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.875rem 1.25rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tokenItem:last-child {
+  border-bottom: 0;
+}
+
+.tokenMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.tokenTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tokenName {
+  font-weight: 500;
+}
+
+.tokenPrefix {
+  padding: 0.0625rem 0.375rem;
+  border-radius: var(--radius-sm);
+  background: var(--gray-100);
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+}
+
+.tokenMeta {
+  margin-top: 0.25rem;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.tokenRevoke {
+  display: inline-flex;
+  padding: 6px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--gray-600);
+  cursor: pointer;
+}
+
+.tokenRevoke:hover {
+  background: var(--danger-50);
+  color: var(--danger-600);
+}
+
+.tokenWarning {
+  margin-bottom: 1rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--primary-100);
+  border-radius: var(--radius-md);
+  background: var(--primary-50);
+  color: var(--primary-700);
+  font-size: var(--text-sm);
+}
+
+.tokenValue {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.tokenValue input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--text-sm);
+}
+
+.tokenUsage {
+  margin-top: 1rem;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+}
+
+.tokenExample {
+  display: block;
+  margin-top: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-md);
+  background: var(--gray-100);
+  font-size: var(--text-sm);
+}

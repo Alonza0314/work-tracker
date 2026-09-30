@@ -25,6 +25,7 @@ const (
 	bboltTodoBucket       = "todo"
 	bboltSettingBucket    = "setting"
 	bboltHolidayBucket    = "holiday"
+	bboltApiTokenBucket   = "apitoken"
 
 	bboltWorkSettingKey    = "work"
 	bboltHolidaySyncKey    = "holidaySync"
@@ -39,6 +40,7 @@ var bboltBuckets = []string{
 	bboltTodoBucket,
 	bboltSettingBucket,
 	bboltHolidayBucket,
+	bboltApiTokenBucket,
 }
 
 type bboltDb struct {
@@ -184,6 +186,30 @@ func bboltUpdateAll[T any](tx *bbolt.Tx, bucket string, change func(*T) bool) (i
 	return len(changed), nil
 }
 
+// bboltDeleteWhere deletes every value in bucket for which match returns true.
+func bboltDeleteWhere[T any](tx *bbolt.Tx, bucket string, match func(*T) bool) error {
+	b := tx.Bucket([]byte(bucket))
+	var keys [][]byte
+	if err := b.ForEach(func(key, data []byte) error {
+		value := new(T)
+		if err := json.Unmarshal(data, value); err != nil {
+			return err
+		}
+		if match(value) {
+			keys = append(keys, append([]byte(nil), key...))
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	for _, key := range keys {
+		if err := b.Delete(key); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // bboltNextID returns a zero-padded sequence number, so IDs sort in creation
 // order both as bytes and as strings.
 func bboltNextID(tx *bbolt.Tx, bucket string) (string, error) {
@@ -218,7 +244,12 @@ func (b *bboltDb) UpdateAccount(acc *model.Account) error {
 
 func (b *bboltDb) DeleteAccount(account string) error {
 	return b.db.Update(func(tx *bbolt.Tx) error {
-		return bboltDelete(tx, bboltAccountBucket, account, ErrAccountNotFound)
+		if err := bboltDelete(tx, bboltAccountBucket, account, ErrAccountNotFound); err != nil {
+			return err
+		}
+		return bboltDeleteWhere(tx, bboltApiTokenBucket, func(t *model.ApiToken) bool {
+			return t.Account == account
+		})
 	})
 }
 
@@ -250,7 +281,16 @@ func (b *bboltDb) RenameAccount(oldAccount, newAccount string) error {
 		}); err != nil {
 			return err
 		}
-		_, err := bboltUpdateAll(tx, bboltTodoBucket, func(t *model.Todo) bool {
+		if _, err := bboltUpdateAll(tx, bboltTodoBucket, func(t *model.Todo) bool {
+			if t.Account != oldAccount {
+				return false
+			}
+			t.Account = newAccount
+			return true
+		}); err != nil {
+			return err
+		}
+		_, err := bboltUpdateAll(tx, bboltApiTokenBucket, func(t *model.ApiToken) bool {
 			if t.Account != oldAccount {
 				return false
 			}
@@ -570,6 +610,9 @@ func (b *bboltDb) Dump() (*model.Backup, error) {
 		if backup.Holidays, err = dumpBucket[model.Holiday](tx, bboltHolidayBucket); err != nil {
 			return err
 		}
+		if backup.ApiTokens, err = dumpBucket[model.ApiToken](tx, bboltApiTokenBucket); err != nil {
+			return err
+		}
 
 		settings := tx.Bucket([]byte(bboltSettingBucket))
 		if data := settings.Get([]byte(bboltWorkSettingKey)); data != nil {
@@ -621,16 +664,20 @@ func (b *bboltDb) Restore(backup *model.Backup) error {
 			}
 		}
 
-		if err := restoreByID(tx, bboltCategoryBucket, backup.Categories, func(o model.WorkOption) string { return o.ID }); err != nil {
+		if err := restoreByID(tx, bboltCategoryBucket, backup.Categories, func(o model.WorkOption) (string, string) { return o.ID, o.ID }); err != nil {
 			return err
 		}
-		if err := restoreByID(tx, bboltProjectBucket, backup.Projects, func(o model.WorkOption) string { return o.ID }); err != nil {
+		if err := restoreByID(tx, bboltProjectBucket, backup.Projects, func(o model.WorkOption) (string, string) { return o.ID, o.ID }); err != nil {
 			return err
 		}
-		if err := restoreByID(tx, bboltWorkRecordBucket, backup.WorkRecords, func(r model.WorkRecord) string { return r.ID }); err != nil {
+		if err := restoreByID(tx, bboltWorkRecordBucket, backup.WorkRecords, func(r model.WorkRecord) (string, string) { return r.ID, r.ID }); err != nil {
 			return err
 		}
-		if err := restoreByID(tx, bboltTodoBucket, backup.Todos, func(t model.Todo) string { return t.ID }); err != nil {
+		if err := restoreByID(tx, bboltTodoBucket, backup.Todos, func(t model.Todo) (string, string) { return t.ID, t.ID }); err != nil {
+			return err
+		}
+		// API tokens are keyed by their hash but still numbered by ID
+		if err := restoreByID(tx, bboltApiTokenBucket, backup.ApiTokens, func(t model.ApiToken) (string, string) { return t.Hash, t.ID }); err != nil {
 			return err
 		}
 
@@ -644,16 +691,17 @@ func (b *bboltDb) Restore(backup *model.Backup) error {
 	})
 }
 
-// restoreByID stores values keyed by their sequence ID and moves the bucket's
-// sequence past the largest one, so new IDs continue after them.
-func restoreByID[T any](tx *bbolt.Tx, bucket string, values []T, id func(T) string) error {
+// restoreByID stores values under their key and moves the bucket's sequence
+// past the largest sequence ID, so new IDs continue after them. keyAndID
+// returns the storage key and the sequence ID (the same for most buckets).
+func restoreByID[T any](tx *bbolt.Tx, bucket string, values []T, keyAndID func(T) (string, string)) error {
 	var last uint64
 	for _, value := range values {
-		key := id(value)
+		key, id := keyAndID(value)
 		if err := bboltPut(tx, bucket, key, value, false, nil, nil); err != nil {
 			return err
 		}
-		if seq, err := strconv.ParseUint(key, 10, 64); err == nil && seq > last {
+		if seq, err := strconv.ParseUint(id, 10, 64); err == nil && seq > last {
 			last = seq
 		}
 	}
@@ -675,4 +723,57 @@ func bboltRecreateBuckets(tx *bbolt.Tx) error {
 		}
 	}
 	return nil
+}
+
+// api token: keys are the token's SHA-256
+
+func (b *bboltDb) GetApiToken(hash string) (*model.ApiToken, error) {
+	return bboltGet[model.ApiToken](b.db, bboltApiTokenBucket, hash, ErrApiTokenNotFound)
+}
+
+func (b *bboltDb) ListApiTokens(account string) ([]*model.ApiToken, error) {
+	return bboltList(b.db, bboltApiTokenBucket, func(t *model.ApiToken) bool {
+		return t.Account == account
+	})
+}
+
+func (b *bboltDb) CreateApiToken(token *model.ApiToken) error {
+	return b.db.Update(func(tx *bbolt.Tx) error {
+		id, err := bboltNextID(tx, bboltApiTokenBucket)
+		if err != nil {
+			return err
+		}
+		token.ID = id
+		return bboltPut(tx, bboltApiTokenBucket, token.Hash, token, false, nil, nil)
+	})
+}
+
+func (b *bboltDb) DeleteApiToken(id string) error {
+	return b.db.Update(func(tx *bbolt.Tx) error {
+		tokens, err := bboltListTx(tx, bboltApiTokenBucket, func(t *model.ApiToken) bool {
+			return t.ID == id
+		})
+		if err != nil {
+			return err
+		}
+		if len(tokens) == 0 {
+			return ErrApiTokenNotFound
+		}
+		return bboltDelete(tx, bboltApiTokenBucket, tokens[0].Hash, ErrApiTokenNotFound)
+	})
+}
+
+func (b *bboltDb) TouchApiToken(hash string, at time.Time) error {
+	return b.db.Update(func(tx *bbolt.Tx) error {
+		data := tx.Bucket([]byte(bboltApiTokenBucket)).Get([]byte(hash))
+		if data == nil {
+			return ErrApiTokenNotFound
+		}
+		token := &model.ApiToken{}
+		if err := json.Unmarshal(data, token); err != nil {
+			return err
+		}
+		token.LastUsedAt = at
+		return bboltPut(tx, bboltApiTokenBucket, hash, token, true, ErrApiTokenNotFound, nil)
+	})
 }

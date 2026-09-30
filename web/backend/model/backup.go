@@ -10,6 +10,7 @@ type Backup struct {
 	WorkRecords     []WorkRecord `json:"workRecords"`
 	Todos           []Todo       `json:"todos"`
 	Holidays        []Holiday    `json:"holidays"`
+	ApiTokens       []ApiToken   `json:"apiTokens"`
 	WorkSetting     WorkSetting  `json:"workSetting"`
 	HolidaySyncedAt time.Time    `json:"holidaySyncedAt"`
 }

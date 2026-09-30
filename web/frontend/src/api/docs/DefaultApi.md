@@ -7,12 +7,14 @@ All URIs are relative to *http://127.0.0.1:5000*
 |[**changeMyPassword**](#changemypassword) | **PUT** /api/me/password | Change the logged-in user\&#39;s password|
 |[**completeMyTodo**](#completemytodo) | **POST** /api/me/todos/{id}/complete | Complete a todo|
 |[**createCategory**](#createcategory) | **POST** /api/categories | Add a task category (admin)|
+|[**createMyApiToken**](#createmyapitoken) | **POST** /api/me/api-tokens | Create an API token|
 |[**createMyTodo**](#createmytodo) | **POST** /api/me/todos | Add a todo|
 |[**createMyWorkRecord**](#createmyworkrecord) | **POST** /api/me/work-records | Add a work record|
 |[**createProject**](#createproject) | **POST** /api/projects | Add a project (admin)|
 |[**createUser**](#createuser) | **POST** /api/users | Create a user (admin)|
 |[**deleteCategory**](#deletecategory) | **DELETE** /api/categories/{id} | Delete a task category (admin)|
 |[**deleteHoliday**](#deleteholiday) | **DELETE** /api/holidays/{date} | Delete a manual holiday entry (admin)|
+|[**deleteMyApiToken**](#deletemyapitoken) | **DELETE** /api/me/api-tokens/{id} | Revoke one of my API tokens|
 |[**deleteMyTodo**](#deletemytodo) | **DELETE** /api/me/todos/{id} | Delete one of my todos|
 |[**deleteMyWorkRecord**](#deletemyworkrecord) | **DELETE** /api/me/work-records/{id} | Delete one of my work records|
 |[**deleteProject**](#deleteproject) | **DELETE** /api/projects/{id} | Delete a project (admin)|
@@ -24,6 +26,7 @@ All URIs are relative to *http://127.0.0.1:5000*
 |[**listAllWorkRecords**](#listallworkrecords) | **GET** /api/work-records | List everyone\&#39;s work records|
 |[**listHolidays**](#listholidays) | **GET** /api/holidays | List a year\&#39;s holiday calendar|
 |[**listMissingEntries**](#listmissingentries) | **GET** /api/work/missing | List who missed logging work|
+|[**listMyApiTokens**](#listmyapitokens) | **GET** /api/me/api-tokens | List my API tokens|
 |[**listMyTodos**](#listmytodos) | **GET** /api/me/todos | List my todos|
 |[**listMyWorkRecords**](#listmyworkrecords) | **GET** /api/me/work-records | List my work records|
 |[**listUsers**](#listusers) | **GET** /api/users | List users (admin)|
@@ -208,6 +211,62 @@ const { status, data } = await apiInstance.createCategory(
 |**400** | Bad Request |  -  |
 |**401** | Unauthorized |  -  |
 |**403** | Forbidden |  -  |
+|**409** | Conflict |  -  |
+|**500** | Internal Server Error |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **createMyApiToken**
+> CreateApiTokenResponse createMyApiToken(createApiTokenRequest)
+
+Returns the token (wt_...) once; only its SHA-256 is stored. Use it as `Authorization: Bearer <token>`; it has the same permissions as its account. At most 10 per account.
+
+### Example
+
+```typescript
+import {
+    DefaultApi,
+    Configuration,
+    CreateApiTokenRequest
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new DefaultApi(configuration);
+
+let createApiTokenRequest: CreateApiTokenRequest; //
+
+const { status, data } = await apiInstance.createMyApiToken(
+    createApiTokenRequest
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **createApiTokenRequest** | **CreateApiTokenRequest**|  | |
+
+
+### Return type
+
+**CreateApiTokenResponse**
+
+### Authorization
+
+[bearerAuth](../README.md#bearerAuth)
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | OK |  -  |
+|**400** | Bad Request |  -  |
+|**401** | Unauthorized |  -  |
 |**409** | Conflict |  -  |
 |**500** | Internal Server Error |  -  |
 
@@ -539,6 +598,59 @@ const { status, data } = await apiInstance.deleteHoliday(
 |**200** | OK |  -  |
 |**401** | Unauthorized |  -  |
 |**403** | Forbidden |  -  |
+|**404** | Not Found |  -  |
+|**500** | Internal Server Error |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **deleteMyApiToken**
+> MessageResponse deleteMyApiToken()
+
+
+### Example
+
+```typescript
+import {
+    DefaultApi,
+    Configuration
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new DefaultApi(configuration);
+
+let id: string; // (default to undefined)
+
+const { status, data } = await apiInstance.deleteMyApiToken(
+    id
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **id** | [**string**] |  | defaults to undefined|
+
+
+### Return type
+
+**MessageResponse**
+
+### Authorization
+
+[bearerAuth](../README.md#bearerAuth)
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | OK |  -  |
+|**401** | Unauthorized |  -  |
 |**404** | Not Found |  -  |
 |**500** | Internal Server Error |  -  |
 
@@ -1123,6 +1235,52 @@ const { status, data } = await apiInstance.listMissingEntries(
 |**400** | Bad Request |  -  |
 |**401** | Unauthorized |  -  |
 |**403** | Forbidden |  -  |
+|**500** | Internal Server Error |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **listMyApiTokens**
+> ApiTokensResponse listMyApiTokens()
+
+The tokens themselves are never returned again; only their prefix.
+
+### Example
+
+```typescript
+import {
+    DefaultApi,
+    Configuration
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new DefaultApi(configuration);
+
+const { status, data } = await apiInstance.listMyApiTokens();
+```
+
+### Parameters
+This endpoint does not have any parameters.
+
+
+### Return type
+
+**ApiTokensResponse**
+
+### Authorization
+
+[bearerAuth](../README.md#bearerAuth)
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | OK |  -  |
+|**401** | Unauthorized |  -  |
 |**500** | Internal Server Error |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)

@@ -224,12 +224,32 @@ holiday:
 
 A failed sync is only logged; the calendar keeps its last data.
 
+#### `apitoken`
+
+Personal API tokens for scripts and Claude skills. Users create and revoke them on the Profile page. Clients send a token as `Authorization: Bearer wt_...`, and it has the same permissions as its account. The token itself is shown once and never stored.
+
+| Key | Value |
+| - | - |
+| SHA-256 of the token (hex) | JSON of `model.ApiToken` (`web/backend/model/apitoken.go`) |
+
+| Field | Type | Description |
+| - | - | - |
+| `id` | string | Zero-padded sequence, used to revoke it. |
+| `account` | string | Owner (`account` bucket key). Deleting the account deletes its tokens. |
+| `name` | string | Label chosen by the user, e.g. `Claude Code skill`. |
+| `prefix` | string | First 10 characters of the token (`wt_` + 7), to recognize it in the list. |
+| `hash` | string | Same as the key. |
+| `createdAt` / `expiresAt` | string | RFC 3339. Lifetimes are 30, 60, 180 or 365 days (default 365). |
+| `lastUsedAt` | string | Last authenticated request, updated at most once a minute; the zero time until first use. |
+
+At most 10 tokens per account.
+
 ### Backup, restore and reset
 
 Admins open **System** in the sidebar (above their name):
 
 - **Download backup**: `GET /api/system/backup` returns `work-tracker-backup_<time>.zip`. It contains a `manifest.json` (`{"app": "work-tracker", "version": 1, "createdAt": ...}`) and one JSON file per bucket:
-  - `account.json`, `category.json`, `project.json`, `work.json`, `todo.json` and `holiday.json` are arrays of the records described above.
+  - `account.json`, `category.json`, `project.json`, `work.json`, `todo.json`, `holiday.json` and `apitoken.json` are arrays of the records described above.
   - `setting.json` is `{"work": <setting.work>, "holidaySyncedAt": <time>}`.
 
   The format does not depend on the database type. Accounts include their password hashes, so keep backups safe.

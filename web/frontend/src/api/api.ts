@@ -23,6 +23,24 @@ import type { RequestArgs } from './base';
 // @ts-ignore
 import { BASE_PATH, COLLECTION_FORMATS, BaseAPI, RequiredError, operationServerMap } from './base';
 
+export interface ApiTokenInfo {
+    'id': string;
+    'name': string;
+    /**
+     * The first characters of the token, to recognize it.
+     */
+    'prefix': string;
+    'createdAt': string;
+    'expiresAt': string;
+    /**
+     * Missing until the token is first used; updated at most once a minute.
+     */
+    'lastUsedAt'?: string;
+}
+export interface ApiTokensResponse {
+    'message': string;
+    'tokens': Array<ApiTokenInfo>;
+}
 /**
  * Palette color name of a task category. Projects have no color. New categories get the least used color.
  */
@@ -55,6 +73,31 @@ export interface CompleteTodoRequest {
     'categoryId'?: string;
     'hours'?: number;
     'projectId'?: string;
+}
+export interface CreateApiTokenRequest {
+    'name': string;
+    /**
+     * Defaults to 365.
+     */
+    'expiresInDays'?: CreateApiTokenRequestExpiresInDaysEnum;
+}
+
+export const CreateApiTokenRequestExpiresInDaysEnum = {
+    NUMBER_30: 30,
+    NUMBER_60: 60,
+    NUMBER_180: 180,
+    NUMBER_365: 365,
+} as const;
+
+export type CreateApiTokenRequestExpiresInDaysEnum = typeof CreateApiTokenRequestExpiresInDaysEnum[keyof typeof CreateApiTokenRequestExpiresInDaysEnum];
+
+export interface CreateApiTokenResponse {
+    'message': string;
+    /**
+     * The token itself, shown only in this response.
+     */
+    'token': string;
+    'apiToken': ApiTokenInfo;
 }
 export interface CreateUserRequest {
     'account': string;
@@ -472,6 +515,45 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             };
         },
         /**
+         * Returns the token (wt_...) once; only its SHA-256 is stored. Use it as `Authorization: Bearer <token>`; it has the same permissions as its account. At most 10 per account.
+         * @summary Create an API token
+         * @param {CreateApiTokenRequest} createApiTokenRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        createMyApiToken: async (createApiTokenRequest: CreateApiTokenRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'createApiTokenRequest' is not null or undefined
+            assertParamExists('createMyApiToken', 'createApiTokenRequest', createApiTokenRequest)
+            const localVarPath = `/api/me/api-tokens`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(createApiTokenRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
          * 
          * @summary Add a todo
          * @param {SaveWorkEntryRequest} saveWorkEntryRequest 
@@ -677,6 +759,44 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             assertParamExists('deleteHoliday', 'date', date)
             const localVarPath = `/api/holidays/{date}`
                 .replace('{date}', encodeURIComponent(String(date)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'DELETE', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Revoke one of my API tokens
+         * @param {string} id 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        deleteMyApiToken: async (id: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'id' is not null or undefined
+            assertParamExists('deleteMyApiToken', 'id', id)
+            const localVarPath = `/api/me/api-tokens/{id}`
+                .replace('{id}', encodeURIComponent(String(id)));
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
             let baseOptions;
@@ -1139,6 +1259,40 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
                     (to as any).toISOString().substring(0,10) :
                     to;
             }
+
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * The tokens themselves are never returned again; only their prefix.
+         * @summary List my API tokens
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        listMyApiTokens: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/me/api-tokens`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
 
             localVarHeaderParameter['Accept'] = 'application/json';
 
@@ -1872,6 +2026,19 @@ export const DefaultApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
+         * Returns the token (wt_...) once; only its SHA-256 is stored. Use it as `Authorization: Bearer <token>`; it has the same permissions as its account. At most 10 per account.
+         * @summary Create an API token
+         * @param {CreateApiTokenRequest} createApiTokenRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async createMyApiToken(createApiTokenRequest: CreateApiTokenRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<CreateApiTokenResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.createMyApiToken(createApiTokenRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.createMyApiToken']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
          * 
          * @summary Add a todo
          * @param {SaveWorkEntryRequest} saveWorkEntryRequest 
@@ -1947,6 +2114,19 @@ export const DefaultApiFp = function(configuration?: Configuration) {
             const localVarAxiosArgs = await localVarAxiosParamCreator.deleteHoliday(date, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['DefaultApi.deleteHoliday']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Revoke one of my API tokens
+         * @param {string} id 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async deleteMyApiToken(id: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<MessageResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.deleteMyApiToken(id, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.deleteMyApiToken']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
@@ -2091,6 +2271,18 @@ export const DefaultApiFp = function(configuration?: Configuration) {
             const localVarAxiosArgs = await localVarAxiosParamCreator.listMissingEntries(to, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['DefaultApi.listMissingEntries']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * The tokens themselves are never returned again; only their prefix.
+         * @summary List my API tokens
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async listMyApiTokens(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ApiTokensResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.listMyApiTokens(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.listMyApiTokens']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
@@ -2357,6 +2549,16 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
             return localVarFp.createCategory(createWorkOptionRequest, options).then((request) => request(axios, basePath));
         },
         /**
+         * Returns the token (wt_...) once; only its SHA-256 is stored. Use it as `Authorization: Bearer <token>`; it has the same permissions as its account. At most 10 per account.
+         * @summary Create an API token
+         * @param {CreateApiTokenRequest} createApiTokenRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        createMyApiToken(createApiTokenRequest: CreateApiTokenRequest, options?: RawAxiosRequestConfig): AxiosPromise<CreateApiTokenResponse> {
+            return localVarFp.createMyApiToken(createApiTokenRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
          * 
          * @summary Add a todo
          * @param {SaveWorkEntryRequest} saveWorkEntryRequest 
@@ -2415,6 +2617,16 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
          */
         deleteHoliday(date: string, options?: RawAxiosRequestConfig): AxiosPromise<MessageResponse> {
             return localVarFp.deleteHoliday(date, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Revoke one of my API tokens
+         * @param {string} id 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        deleteMyApiToken(id: string, options?: RawAxiosRequestConfig): AxiosPromise<MessageResponse> {
+            return localVarFp.deleteMyApiToken(id, options).then((request) => request(axios, basePath));
         },
         /**
          * 
@@ -2526,6 +2738,15 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
          */
         listMissingEntries(to: string, options?: RawAxiosRequestConfig): AxiosPromise<MissingEntriesResponse> {
             return localVarFp.listMissingEntries(to, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * The tokens themselves are never returned again; only their prefix.
+         * @summary List my API tokens
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        listMyApiTokens(options?: RawAxiosRequestConfig): AxiosPromise<ApiTokensResponse> {
+            return localVarFp.listMyApiTokens(options).then((request) => request(axios, basePath));
         },
         /**
          * Sorted by date, earliest first.
@@ -2741,6 +2962,17 @@ export class DefaultApi extends BaseAPI {
     }
 
     /**
+     * Returns the token (wt_...) once; only its SHA-256 is stored. Use it as `Authorization: Bearer <token>`; it has the same permissions as its account. At most 10 per account.
+     * @summary Create an API token
+     * @param {CreateApiTokenRequest} createApiTokenRequest 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public createMyApiToken(createApiTokenRequest: CreateApiTokenRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).createMyApiToken(createApiTokenRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
      * 
      * @summary Add a todo
      * @param {SaveWorkEntryRequest} saveWorkEntryRequest 
@@ -2804,6 +3036,17 @@ export class DefaultApi extends BaseAPI {
      */
     public deleteHoliday(date: string, options?: RawAxiosRequestConfig) {
         return DefaultApiFp(this.configuration).deleteHoliday(date, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Revoke one of my API tokens
+     * @param {string} id 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public deleteMyApiToken(id: string, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).deleteMyApiToken(id, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
@@ -2926,6 +3169,16 @@ export class DefaultApi extends BaseAPI {
      */
     public listMissingEntries(to: string, options?: RawAxiosRequestConfig) {
         return DefaultApiFp(this.configuration).listMissingEntries(to, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * The tokens themselves are never returned again; only their prefix.
+     * @summary List my API tokens
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public listMyApiTokens(options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).listMyApiTokens(options).then((request) => request(this.axios, this.basePath));
     }
 
     /**

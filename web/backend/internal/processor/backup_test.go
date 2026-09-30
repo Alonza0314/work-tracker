@@ -70,7 +70,7 @@ func TestBackupZipHasManifestAndOneJsonPerTable(t *testing.T) {
 
 	files := zipFiles(t, mustBackup(t, f.p))
 
-	for _, name := range []string{"manifest.json", "account.json", "category.json", "project.json", "work.json", "todo.json", "holiday.json", "setting.json"} {
+	for _, name := range []string{"manifest.json", "account.json", "category.json", "project.json", "work.json", "todo.json", "holiday.json", "apitoken.json", "setting.json"} {
 		if _, ok := files[name]; !ok {
 			t.Errorf("zip is missing %s", name)
 		}

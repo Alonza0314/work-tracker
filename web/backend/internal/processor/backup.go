@@ -32,6 +32,7 @@ func backupTables(backup *model.Backup, settings *backupSettings) map[string]any
 		"work.json":     &backup.WorkRecords,
 		"todo.json":     &backup.Todos,
 		"holiday.json":  &backup.Holidays,
+		"apitoken.json": &backup.ApiTokens,
 		"setting.json":  settings,
 	}
 }

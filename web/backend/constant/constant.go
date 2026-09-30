@@ -75,3 +75,15 @@ const (
 	// the text a reset request must carry
 	RESET_CONFIRM = "RESET"
 )
+
+// api tokens
+const (
+	// every API token starts with this, which tells it apart from a JWT
+	API_TOKEN_PREFIX = "wt_"
+
+	API_TOKEN_MAX_PER_ACCOUNT = 10
+	API_TOKEN_DEFAULT_DAYS    = 365
+)
+
+// API_TOKEN_EXPIRY_DAYS are the lifetimes a token can be created with.
+var API_TOKEN_EXPIRY_DAYS = []int{30, 60, 180, 365}

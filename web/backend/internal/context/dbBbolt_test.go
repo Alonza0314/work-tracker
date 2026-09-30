@@ -760,3 +760,125 @@ func TestBboltResetEmptiesEverything(t *testing.T) {
 		t.Errorf("first ID after reset = %q, %v", category.ID, err)
 	}
 }
+
+func testApiToken(account, hash string) *model.ApiToken {
+	now := time.Date(2026, 9, 30, 9, 0, 0, 0, time.UTC)
+	return &model.ApiToken{
+		Account:   account,
+		Name:      "skill",
+		Prefix:    "wt_abc",
+		Hash:      hash,
+		CreatedAt: now,
+		ExpiresAt: now.AddDate(1, 0, 0),
+	}
+}
+
+func TestBboltApiTokenCRUD(t *testing.T) {
+	db := newTestBboltDb(t)
+
+	first := testApiToken("ALICE", "h1")
+	second := testApiToken("ALICE", "h2")
+	bobs := testApiToken("BOB", "h3")
+	for _, token := range []*model.ApiToken{first, second, bobs} {
+		if err := db.CreateApiToken(token); err != nil {
+			t.Fatalf("CreateApiToken: %v", err)
+		}
+	}
+	if first.ID == "" || first.ID >= second.ID {
+		t.Errorf("IDs = %q, %q", first.ID, second.ID)
+	}
+
+	got, err := db.GetApiToken("h2")
+	if err != nil || got.ID != second.ID || got.Account != "ALICE" {
+		t.Errorf("GetApiToken = %+v, %v", got, err)
+	}
+	if _, err := db.GetApiToken("missing"); !errors.Is(err, ErrApiTokenNotFound) {
+		t.Errorf("GetApiToken missing err = %v", err)
+	}
+
+	list, err := db.ListApiTokens("ALICE")
+	if err != nil || len(list) != 2 {
+		t.Errorf("ListApiTokens = %+v, %v", list, err)
+	}
+
+	used := time.Date(2026, 10, 1, 8, 0, 0, 0, time.UTC)
+	if err := db.TouchApiToken("h1", used); err != nil {
+		t.Fatalf("TouchApiToken: %v", err)
+	}
+	if got, _ := db.GetApiToken("h1"); !got.LastUsedAt.Equal(used) {
+		t.Errorf("LastUsedAt = %v", got.LastUsedAt)
+	}
+
+	if err := db.DeleteApiToken(first.ID); err != nil {
+		t.Fatalf("DeleteApiToken: %v", err)
+	}
+	if _, err := db.GetApiToken("h1"); !errors.Is(err, ErrApiTokenNotFound) {
+		t.Errorf("deleted token still found: %v", err)
+	}
+	if err := db.DeleteApiToken(first.ID); !errors.Is(err, ErrApiTokenNotFound) {
+		t.Errorf("second DeleteApiToken err = %v", err)
+	}
+}
+
+func TestBboltDeleteAccountRemovesItsApiTokens(t *testing.T) {
+	db := newTestBboltDb(t)
+	if err := db.CreateAccount(testAccount("ALICE")); err != nil {
+		t.Fatal(err)
+	}
+	for _, token := range []*model.ApiToken{testApiToken("ALICE", "h1"), testApiToken("BOB", "h2")} {
+		if err := db.CreateApiToken(token); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := db.DeleteAccount("ALICE"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.GetApiToken("h1"); !errors.Is(err, ErrApiTokenNotFound) {
+		t.Errorf("token of a deleted account survived: %v", err)
+	}
+	if _, err := db.GetApiToken("h2"); err != nil {
+		t.Errorf("another account's token was removed: %v", err)
+	}
+}
+
+func TestBboltRenameAccountReownsApiTokens(t *testing.T) {
+	db := newTestBboltDb(t)
+	if err := db.CreateAccount(testAccount("alice")); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.CreateApiToken(testApiToken("alice", "h1")); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := db.RenameAccount("alice", "ALICE"); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := db.GetApiToken("h1"); got.Account != "ALICE" {
+		t.Errorf("token account = %q", got.Account)
+	}
+}
+
+func TestBboltBackupIncludesApiTokens(t *testing.T) {
+	source := newTestBboltDb(t)
+	token := testApiToken("ALICE", "h1")
+	if err := source.CreateApiToken(token); err != nil {
+		t.Fatal(err)
+	}
+	backup, err := source.Dump()
+	if err != nil || len(backup.ApiTokens) != 1 {
+		t.Fatalf("Dump tokens = %+v, %v", backup.ApiTokens, err)
+	}
+
+	target := newTestBboltDb(t)
+	if err := target.Restore(backup); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := target.GetApiToken("h1"); err != nil || got.ID != token.ID {
+		t.Errorf("restored token = %+v, %v", got, err)
+	}
+	next := testApiToken("ALICE", "h2")
+	if err := target.CreateApiToken(next); err != nil || next.ID <= token.ID {
+		t.Errorf("next ID %q after restored %q, %v", next.ID, token.ID, err)
+	}
+}

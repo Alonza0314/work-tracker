@@ -54,7 +54,10 @@ Request flow: `main.go` → `cmd/wt.go` (cobra; loads YAML config via `util.Load
 - **`internal/backend.go`**: defines the `backend` struct, which embeds `processor.Processor` and `*logger.BackendLogger`, so handlers call `b.Processor.X(...)` and `b.AccLog...`. It also contains:
   - **`addServices`**: registers routes on three groups:
     - `apiGroup` (`/api`, from `constant.API_PREFIX`): public routes.
-    - `authGroup`: runs `addAuthMiddleware`, which validates the JWT (via `github.com/free-ran-ue/util`), loads the account named by the `sub` claim from the DB through `Processor.Authenticate`, and stores it in the gin context. Handlers read it with `currentAccount(c)`.
+    - `authGroup`: runs `addAuthMiddleware`, which accepts two kinds of bearer credential:
+      - A personal API token (starts with `wt_`): resolved by `Processor.AuthenticateApiToken`.
+      - Otherwise a JWT (via `github.com/free-ran-ue/util`): the account named by the `sub` claim is loaded through `Processor.Authenticate`.
+      - Either way it stores the DB account in the gin context. Handlers read it with `currentAccount(c)`.
     - `adminGroup`: nested in `authGroup`, and additionally requires `role == admin`.
   - **`NoRoute(returnPages())`**: serves the SPA. It returns files from `frontendFilePath` and falls back to `index.html`.
 - **`internal/api_<domain>.go`**: HTTP layer for one domain.
@@ -65,7 +68,7 @@ Request flow: `main.go` → `cmd/wt.go` (cobra; loads YAML config via `util.Load
   - Methods take `*model.Request<Action>` and return `(*model.Response<Action>, *model.ErrorDetail)`.
   - `ErrorDetail{HttpStatus, Detail}` carries the HTTP status up to the handler, so processors decide status codes. They never touch gin.
 - **`internal/context/`**: `SystemContext` → `dbContext` → `DbIf`.
-  - `DbIf` (`db.go`) is the storage abstraction. It is composed of per-domain interfaces (`AccountDbIf`, `CategoryDbIf`, `ProjectDbIf`, `WorkRecordDbIf`, `TodoDbIf`, `SettingDbIf`), plus `Release()`.
+  - `DbIf` (`db.go`) is the storage abstraction. It is composed of per-domain interfaces (`AccountDbIf`, `CategoryDbIf`, `ProjectDbIf`, `WorkRecordDbIf`, `TodoDbIf`, `SettingDbIf`, `HolidayDbIf`, `ApiTokenDbIf`, `BackupDbIf`), plus `Release()`.
     - Implementations return the package's sentinel errors (`ErrXxxNotFound`, `ErrAccountExists`).
     - `Create*` methods of the work interfaces assign a string ID that sorts in creation order.
   - `newDb` switches on `db.type`; only `"bbolt"` exists: one bucket per domain, JSON values.
@@ -93,6 +96,15 @@ Request flow: `main.go` → `cmd/wt.go` (cobra; loads YAML config via `util.Load
   - Admins cannot delete themselves.
 - **JWT**: tokens carry `sub` (account), `name`, `role` and `i18n` claims. The frontend reads the display name, UI language and role from them. `PUT /api/me` returns a fresh token after an i18n change.
   - Authorization always uses the DB account loaded by the middleware, never the claims.
+
+### API tokens
+
+- Personal access tokens (`processor/apitoken.go`) for scripts and Claude skills: `wt_` + 32 random bytes (base64url). They have the same permissions as the account; there are no scopes.
+- **Storage**: only the SHA-256 is stored (the `apitoken` bucket is keyed by it). The token is returned once, by `POST /api/me/api-tokens`.
+- **Lifetime and limits**: `API_TOKEN_EXPIRY_DAYS` (30/60/180/365, default 365), at most `API_TOKEN_MAX_PER_ACCOUNT` (10) per account.
+- **Authentication**: `AuthenticateApiToken` hashes the token, looks it up, checks expiry, then loads the account through `Authenticate`. `lastUsedAt` is written at most once a minute.
+- **Account changes**: `DeleteAccount` deletes the account's tokens and `RenameAccount` re-owns them, each in the same transaction.
+- **Revoking**: users revoke their own tokens only (`/api/me/api-tokens/:id`; other people's IDs answer 404). The frontend is `page/profile/ApiTokenPanel.tsx`.
 
 ### Work table
 
