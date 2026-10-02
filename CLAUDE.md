@@ -26,6 +26,7 @@ Run from the repo root unless noted.
 - Unit tests: `internal/context/dbBbolt_test.go` (storage) and `internal/processor/*_test.go` (business rules). CI (`.github/workflows`) runs `go build`, `go test`, `make`, golangci-lint, `yarn build` and the skill script tests.
 - **Integration tests**: they live in `integration-test/goTest/`, a separate stdlib-only module that calls the HTTP API of the Docker image.
   - Each top-level `Test*` gets a fresh compose from `test.sh` (port 18888, data under `/tmp/wt-integration-test/<Test>`); split it into `t.Run` subtests.
+  - `TestStress` (`stress_test.go`) is the load test; its size comes from `WT_STRESS_USERS` / `WT_STRESS_RECORDS`. Requests on extra goroutines must use `client.try` (or `stressStats.call`), never the `t.Fatal`-ing helpers.
   - When adding a feature, add or extend a `Test*` case and its row in the README's "Integration test" table.
   - CI runs every case by name in the single "Integration test" step of the `build` job in `.github/workflows/docker.yaml`, one `./integration-test/test.sh TestXxx` line per case, never `TestAll`. A new `Test*` needs its line there too.
 - Commit messages must follow Conventional Commits (`feat:`, `fix:`, `style:`, `chore:`…). CI checks this.

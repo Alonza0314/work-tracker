@@ -53,6 +53,7 @@ jobs:
           ./integration-test/test.sh TestApiTokens
           ./integration-test/test.sh TestBackupRestore
           ./integration-test/test.sh TestReset
+          ./integration-test/test.sh TestStress
 
   version-release:
     name: Release Version Image

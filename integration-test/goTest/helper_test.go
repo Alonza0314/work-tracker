@@ -71,12 +71,12 @@ func (r *response) list(key string) []map[string]any {
 	return result
 }
 
-func (c *client) send(method, path, contentType string, body io.Reader) *response {
-	c.t.Helper()
-
+// roundTrip sends one request and reports failures instead of failing the
+// test, so it can run on goroutines other than the test's.
+func (c *client) roundTrip(method, path, contentType string, body io.Reader) (*response, error) {
 	req, err := http.NewRequest(method, baseURL()+path, body)
 	if err != nil {
-		c.t.Fatalf("%s %s: %v", method, path, err)
+		return nil, fmt.Errorf("%s %s: %v", method, path, err)
 	}
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
@@ -87,16 +87,38 @@ func (c *client) send(method, path, contentType string, body io.Reader) *respons
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		c.t.Fatalf("%s %s: %v", method, path, err)
+		return nil, fmt.Errorf("%s %s: %v", method, path, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
-		c.t.Fatalf("%s %s: reading body: %v", method, path, err)
+		return nil, fmt.Errorf("%s %s: reading body: %v", method, path, err)
 	}
 	result := &response{status: resp.StatusCode, body: data, header: resp.Header}
 	_ = json.Unmarshal(data, &result.json)
+	return result, nil
+}
+
+// try sends a JSON request (payload may be nil) without failing the test.
+func (c *client) try(method, path string, payload any) (*response, error) {
+	if payload == nil {
+		return c.roundTrip(method, path, "", nil)
+	}
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("%s %s: encoding payload: %v", method, path, err)
+	}
+	return c.roundTrip(method, path, "application/json", bytes.NewReader(data))
+}
+
+func (c *client) send(method, path, contentType string, body io.Reader) *response {
+	c.t.Helper()
+
+	result, err := c.roundTrip(method, path, contentType, body)
+	if err != nil {
+		c.t.Fatal(err)
+	}
 	return result
 }
 

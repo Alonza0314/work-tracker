@@ -296,6 +296,8 @@ CI runs the cases in the "Integration test" step of the `Build Check` job in `.g
 | `WT_TEST_IMAGE` | `alonza0314/work-tracker:test` | image under test |
 | `WT_TEST_PORT` | `18888` | host port of the app |
 | `WT_TEST_ROOT` | `/tmp/wt-integration-test` | where per-case data go |
+| `WT_STRESS_USERS` | `10` | `TestStress`: concurrent users |
+| `WT_STRESS_RECORDS` | `40` | `TestStress`: records each user writes |
 
 ### Test cases
 
@@ -309,6 +311,7 @@ CI runs the cases in the "Integration test" step of the `Build Check` job in `.g
 | `TestProfile` | `profile_test.go` | reading your profile; changing the UI language returns a token carrying it (unsupported language → 400); changing the password (wrong old password → 403; the new one ignores case); the system admin's password comes from the config (→ 403) |
 | `TestBackupRestore` | `system_test.go` | downloading a backup zip (manifest plus one JSON file per table); only admins back up or restore; restoring brings back users, records and API tokens, and new IDs continue after the restored ones; non-zip, another app's zip or a missing file field → 400 without changing data |
 | `TestReset` | `system_test.go` | a reset needs `{"confirm": "RESET"}` (→ 400) and an admin (→ 403); it leaves only the config admin and old tokens stop working |
+| `TestStress` | `stress_test.go` | load: every user writes records at once while others read everyone's table (no failed request, no lost write, every read is a consistent snapshot whose count never goes back); concurrent updates and deletes; 20 racing completions of one todo create exactly one record (the rest → 404); concurrent logins and API token calls; a backup taken during writes is a valid snapshot. Logs requests per second and p50/p95/max latency. Heavier run: `WT_STRESS_USERS=50 WT_STRESS_RECORDS=400 ./test.sh TestStress` |
 | `TestTodos` | `todos_test.go` | a todo needs only a date (the description may be blank); todos are listed by date; completing one creates a work record on the given date; a todo without category or hours needs them to complete (→ 400, todo kept); update and delete; other people's todos → 404 |
 | `TestUserManagement` | `users_test.go` | creating a user stores the account in upper case with the account as initial password; duplicates → 409, blank name or unknown role → 400; the list is sorted by account; partial updates and password reset; the system admin can't be changed or deleted and admins can't delete themselves (→ 403); default users can't manage users (→ 403); a deleted user's token → 401 |
 | `TestEveryonesWork` | `viewall_test.go` | default users need `allowViewAll` for everyone's records, members and missed entries (→ 403); admins see everyone's records with totals; filters by member (any case), category and project; quarter ranges; the members list; switching `allowViewAll` on and off |
