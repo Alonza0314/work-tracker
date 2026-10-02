@@ -26,4 +26,4 @@ jobs:
         run: cd web/backend && go test -v ./...
 
       - name: Make Backend
-        run: make
+        run: make backend
