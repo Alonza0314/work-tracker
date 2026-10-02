@@ -2,7 +2,7 @@ import type { SaveWorkEntryRequest, WorkRecord } from '../../api'
 import type { MessageKey } from '../../i18n/locales/en'
 import { isValidHours, today } from '../../work/format'
 
-// record: category and hours required; todo: only date and description
+// record: category and hours required; todo: only date (description is always optional)
 export type EntryKind = 'record' | 'todo'
 
 // the editable form of an entry: every field as its input's string value
@@ -39,7 +39,7 @@ export type DraftResult =
 export function draftToRequest(draft: EntryDraft, kind: EntryKind): DraftResult {
   const required = kind === 'record'
   const description = draft.description.trim()
-  if (!draft.date || !description || (required && !draft.categoryId)) {
+  if (!draft.date || (required && !draft.categoryId)) {
     return { error: 'work.required' }
   }
 

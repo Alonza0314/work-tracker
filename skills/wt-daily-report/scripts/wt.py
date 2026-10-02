@@ -1,0 +1,1 @@
+../../wt-log-work/scripts/wt.py

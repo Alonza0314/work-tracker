@@ -227,12 +227,12 @@ export interface SaveHolidayRequest {
 
 
 /**
- * Work records require categoryId and hours; todos only require date and description. projectId is always optional.
+ * Work records require categoryId and hours; todos only require date. description and projectId are always optional.
  */
 export interface SaveWorkEntryRequest {
     'date': string;
     'categoryId'?: string;
-    'description': string;
+    'description'?: string;
     'hours'?: number;
     'projectId'?: string;
 }

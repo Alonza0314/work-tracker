@@ -19,10 +19,11 @@ Run from the repo root unless noted.
 | Frontend dev server | `cd web/frontend && yarn dev` (proxies `/api` to `http://localhost:8888`; set `VITE_API_PROXY` for another backend) |
 | Frontend type-check + build | `cd web/frontend && yarn build` |
 | Docker image / clean build + db | `make docker` / `make clean` |
+| Skill script tests | `python3 -m unittest discover -s skills/tests -v` |
 | Integration test (Docker) | `make dockertest`, then `cd integration-test && ./test.sh TestAll` (or `./test.sh TestLogin`, `./test.sh list`) |
 
 - `yarn lint` does not run at the moment: `eslint.config.js` uses `reactHooks.configs['recommended-latest']`, and eslint-plugin-react-hooks v7 no longer supports that key.
-- Unit tests: `internal/context/dbBbolt_test.go` (storage) and `internal/processor/*_test.go` (business rules). CI (`.github/workflows`) runs `go build`, `go test`, `make`, golangci-lint and `yarn build`.
+- Unit tests: `internal/context/dbBbolt_test.go` (storage) and `internal/processor/*_test.go` (business rules). CI (`.github/workflows`) runs `go build`, `go test`, `make`, golangci-lint, `yarn build` and the skill script tests.
 - **Integration tests**: they live in `integration-test/goTest/`, a separate stdlib-only module that calls the HTTP API of the Docker image.
   - Each top-level `Test*` gets a fresh compose from `test.sh` (port 18888, data under `/tmp/wt-integration-test/<Test>`); split it into `t.Run` subtests.
   - When adding a feature, add or extend a `Test*` case and its row in the README's "Integration test" table.
@@ -115,7 +116,7 @@ Request flow: `main.go` → `cmd/wt.go` (cobra; loads YAML config via `util.Load
 
 - **Data**: `model/work.go`. Records and todos share `WorkEntry` (date `YYYY-MM-DD`, categoryId, description, hours in (0, 24] in 0.5 steps (`WORK_HOURS_STEP`), projectId) and are owned by an account.
   - Unset optional fields are `""` / `0`.
-  - Required fields differ per target through `workEntryRule` in `processor/work.go`. Records need category and hours. Todos only need date and description. The project is always optional.
+  - Required fields differ per target through `workEntryRule` in `processor/work.go`. Records need category and hours. Todos only need a date. The description and the project are always optional.
   - Completing a todo validates the result against the record rule. `RequestCompleteTodo` can fill in the category, hours and project; the frontend opens `CompleteTodoModal` when the todo lacks them.
 - **Categories and projects**: both are `WorkOption`s, handled by shared logic through `workOptionStore` in `processor/work.go`.
   - Categories have a `color` from `constant.WORK_CATEGORY_COLORS`. New ones get the least used color (`leastUsedColor`); categories without one get a stable color from their ID (`categoryColor`). Projects reject colors.
@@ -200,3 +201,14 @@ Request flow: `main.go` → `cmd/wt.go` (cobra; loads YAML config via `util.Load
 - **Shared components**: `components/`. Modal renders a `<form>` (Enter submits). Also Panel, Field/TextInput/SelectInput, Badge, Button, and notifications.
   - Surface errors and successes with `useNotifications()` + `<NotificationContainer/>`.
   - Map API failures to localized messages with `errorStatus(error)` from `apiClient.ts`; backend messages are English only.
+
+## Claude skills (`skills/`)
+
+- `wt-log-work` (log work) and `wt-daily-report` (previous workday for the daily meeting) are Claude Code skills that call the API with a personal API token.
+- **One script**: both use `skills/wt-log-work/scripts/wt.py` (Python 3, **standard library only**). `wt-daily-report/scripts/wt.py` is a symlink to it; never copy it.
+  - Every subcommand prints one JSON object. Exit code 0 = ok, 1 = error, 2 = not configured.
+  - Config: `~/.wt/config.json` `{url, token}` (dir 700, file 600; `WT_CONFIG_DIR` overrides the folder). `setup` verifies the token via `/api/me` before saving. Skills tell the user to run `! python3 … setup` themselves, so the token never enters the chat.
+  - Categories and projects have separate ID sequences, so the same ID can name one of each: always resolve them from their own list.
+  - `last-workday` follows the same workday rule as the weekly target (Mon-Fri, minus `holiday`, plus `workday` from `/api/holidays`).
+- **Install**: the built-in `/integrate` skill (`skills/.claude/skills/integrate/SKILL.md`, no separate script; Claude Code picks it up when working in `skills/`) copies every `skills/wt-*` into `~/.claude/skills/` (`cp -RL`, replacing old copies). A new skill must be named `wt-*` to be installed.
+- **Tests**: `skills/tests/test_wt.py` runs `wt.main()` against a fake API server (`http.server`). CI: `.github/workflows/skills.yaml`. When an API used by `wt.py` changes, update the fake and the script together.

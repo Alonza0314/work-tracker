@@ -1362,11 +1362,10 @@ components:
     SaveWorkEntryRequest:
       type: object
       description: >-
-        Work records require categoryId and hours; todos only require date and
-        description. projectId is always optional.
+        Work records require categoryId and hours; todos only require date.
+        description and projectId are always optional.
       required:
         - date
-        - description
       properties:
         date:
           type: string

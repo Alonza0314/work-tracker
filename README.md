@@ -153,7 +153,7 @@ Work records. The UI lists them one week (Monday to Sunday) at a time. The newes
 | `account` | string | Owner (`account` bucket key, upper case). Records are kept when the user is deleted. |
 | `date` | string | Work date, `YYYY-MM-DD`. |
 | `categoryId` | string | `category` bucket key. Required for records; `""` when a todo has none. |
-| `description` | string | What was done. |
+| `description` | string | What was done. May be empty. |
 | `hours` | number | Time spent in half-hour steps (0.5, 1, 1.5, …), at most 24. Required for records; `0` when a todo has none. |
 | `projectId` | string | `project` bucket key. Optional: `""` when not set. |
 | `createdAt` | string | RFC 3339 creation time. |
@@ -173,7 +173,7 @@ Work records. The UI lists them one week (Monday to Sunday) at a time. The newes
 
 #### `todo`
 
-Todos, stored as JSON of `model.Todo`. The fields are the same as in `work`, but only `date` and `description` are required. `categoryId`, `hours` and `projectId` may be empty.
+Todos, stored as JSON of `model.Todo`. The fields are the same as in `work`, but only `date` is required. `categoryId`, `description`, `hours` and `projectId` may be empty.
 
 Completing a todo deletes it from this bucket and creates a `work` record dated on the completion day, in a single transaction. If the todo has no category or hours, the user must fill them in when completing it.
 
@@ -309,9 +309,35 @@ CI runs the cases in the "Integration test" step of the `Build Check` job in `.g
 | `TestProfile` | `profile_test.go` | reading your profile; changing the UI language returns a token carrying it (unsupported language → 400); changing the password (wrong old password → 403; the new one ignores case); the system admin's password comes from the config (→ 403) |
 | `TestBackupRestore` | `system_test.go` | downloading a backup zip (manifest plus one JSON file per table); only admins back up or restore; restoring brings back users, records and API tokens, and new IDs continue after the restored ones; non-zip, another app's zip or a missing file field → 400 without changing data |
 | `TestReset` | `system_test.go` | a reset needs `{"confirm": "RESET"}` (→ 400) and an admin (→ 403); it leaves only the config admin and old tokens stop working |
-| `TestTodos` | `todos_test.go` | a todo needs only date and description; todos are listed by date; completing one creates a work record on the given date; a todo without category or hours needs them to complete (→ 400, todo kept); update and delete; other people's todos → 404 |
+| `TestTodos` | `todos_test.go` | a todo needs only a date (the description may be blank); todos are listed by date; completing one creates a work record on the given date; a todo without category or hours needs them to complete (→ 400, todo kept); update and delete; other people's todos → 404 |
 | `TestUserManagement` | `users_test.go` | creating a user stores the account in upper case with the account as initial password; duplicates → 409, blank name or unknown role → 400; the list is sorted by account; partial updates and password reset; the system admin can't be changed or deleted and admins can't delete themselves (→ 403); default users can't manage users (→ 403); a deleted user's token → 401 |
 | `TestEveryonesWork` | `viewall_test.go` | default users need `allowViewAll` for everyone's records, members and missed entries (→ 403); admins see everyone's records with totals; filters by member (any case), category and project; quarter ranges; the members list; switching `allowViewAll` on and off |
 | `TestWeekSummary` | `weeksummary_test.go` | a plain week needs 40 hours, with per-day logged/required hours; a Friday off → 32 hours; a makeup Saturday adds 8; remaining hours never go below zero; bad date → 400 |
 | `TestWorkOptions` | `workoptions_test.go` | new categories get the least used colors; names are unique ignoring case and not blank; rename, recolor and deactivate (unknown color → 400, project color → 400, unknown ID → 404); everyone reads the options, only admins change them; deleting a category or project clears it from records and todos; work settings update only the given fields |
-| `TestWorkRecords` | `workrecords_test.go` | validation (category and hours required, half-hour steps, dates, description, unknown or inactive options); the project is optional; multi-line descriptions; listing a range newest first with totals; a range is required and must not be reversed; update and delete; a record keeps a category deactivated after it was chosen; other people's records → 404 |
+| `TestWorkRecords` | `workrecords_test.go` | validation (category and hours required, half-hour steps, dates, unknown or inactive options); the project and the description are optional; multi-line descriptions; listing a range newest first with totals; a range is required and must not be reversed; update and delete; a record keeps a category deactivated after it was chosen; other people's records → 404 |
+
+## Claude skills
+
+`skills/` holds two Claude Code skills that use the API with a personal API token:
+
+| Skill | Use |
+| - | - |
+| `wt-log-work` | Log work from a plain description ("幫我記今天開發 API 3 小時"). It shows the records for confirmation before saving. |
+| `wt-daily-report` | Summarize the previous workday's records for the daily meeting. Weekends and holidays are skipped using the Work Tracker calendar. |
+
+### Install
+
+1. Start Claude Code in `skills/` (or in the repo and open a file under `skills/`) and run `/integrate`. This built-in skill (`skills/.claude/skills/integrate/`) copies every `skills/wt-*` into `~/.claude/skills/`; run it again after pulling updates.
+2. Reload Claude Code.
+3. Create an API token on the site's Profile page, then save the site URL and the token:
+
+   ```bash
+   python3 ~/.claude/skills/wt-log-work/scripts/wt.py setup
+   ```
+
+   Inside Claude Code, type `! python3 ~/.claude/skills/wt-log-work/scripts/wt.py setup` so the token never goes into the chat. The token is checked before it is saved to `~/.wt/config.json` (mode 600). Run `setup` again when the token expires.
+
+### Develop
+
+- Both skills share `skills/wt-log-work/scripts/wt.py` (Python 3, standard library only); `wt-daily-report/scripts/wt.py` is a symlink to it, which `/integrate` copies as a real file. Run `python3 skills/wt-log-work/scripts/wt.py --help` for its commands.
+- Tests: `python3 -m unittest discover -s skills/tests -v` (a fake API server; CI runs it in the "Skills" workflow).

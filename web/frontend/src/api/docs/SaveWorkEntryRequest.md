@@ -1,6 +1,6 @@
 # SaveWorkEntryRequest
 
-Work records require categoryId and hours; todos only require date and description. projectId is always optional.
+Work records require categoryId and hours; todos only require date. description and projectId are always optional.
 
 ## Properties
 
@@ -8,7 +8,7 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **date** | **string** |  | [default to undefined]
 **categoryId** | **string** |  | [optional] [default to undefined]
-**description** | **string** |  | [default to undefined]
+**description** | **string** |  | [optional] [default to undefined]
 **hours** | **number** |  | [optional] [default to undefined]
 **projectId** | **string** |  | [optional] [default to undefined]
 

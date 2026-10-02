@@ -662,9 +662,6 @@ func (p *Processor) checkWorkEntry(req *model.RequestSaveWorkEntry, prev *model.
 		return nil, errBadRequest("Category is required")
 	}
 	description := strings.TrimSpace(req.Description)
-	if description == "" {
-		return nil, errBadRequest("Description must not be blank")
-	}
 
 	var prevCategory, prevProject string
 	if prev != nil {

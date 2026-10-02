@@ -130,13 +130,12 @@ func TestCreateMyWorkRecordValidatesEntry(t *testing.T) {
 	f := newWorkFixture(t)
 
 	cases := map[string]func(*model.RequestSaveWorkEntry){
-		"bad date":          func(e *model.RequestSaveWorkEntry) { e.Date = "2026/09/01" },
-		"zero hours":        func(e *model.RequestSaveWorkEntry) { e.Hours = 0 },
-		"too many hours":    func(e *model.RequestSaveWorkEntry) { e.Hours = 24.5 },
-		"not half hours":    func(e *model.RequestSaveWorkEntry) { e.Hours = 1.3 },
-		"blank description": func(e *model.RequestSaveWorkEntry) { e.Description = "  " },
-		"unknown category":  func(e *model.RequestSaveWorkEntry) { e.CategoryID = "missing" },
-		"unknown project":   func(e *model.RequestSaveWorkEntry) { e.ProjectID = "missing" },
+		"bad date":         func(e *model.RequestSaveWorkEntry) { e.Date = "2026/09/01" },
+		"zero hours":       func(e *model.RequestSaveWorkEntry) { e.Hours = 0 },
+		"too many hours":   func(e *model.RequestSaveWorkEntry) { e.Hours = 24.5 },
+		"not half hours":   func(e *model.RequestSaveWorkEntry) { e.Hours = 1.3 },
+		"unknown category": func(e *model.RequestSaveWorkEntry) { e.CategoryID = "missing" },
+		"unknown project":  func(e *model.RequestSaveWorkEntry) { e.ProjectID = "missing" },
 	}
 	for name, mutate := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -158,6 +157,20 @@ func TestCreateMyWorkRecordRequiresCategoryAndHours(t *testing.T) {
 
 	_, errDetail = f.p.CreateMyWorkRecord(f.alice, f.entry("2026-09-01", 0))
 	expectStatus(t, errDetail, http.StatusBadRequest)
+}
+
+func TestCreateMyWorkRecordDescriptionIsOptional(t *testing.T) {
+	f := newWorkFixture(t)
+
+	entry := f.entry("2026-09-01", 1)
+	entry.Description = "  "
+	resp, errDetail := f.p.CreateMyWorkRecord(f.alice, entry)
+	if errDetail != nil {
+		t.Fatalf("CreateMyWorkRecord: %+v", errDetail)
+	}
+	if resp.Record.Description != "" {
+		t.Errorf("description = %q, want empty", resp.Record.Description)
+	}
 }
 
 func TestCreateMyWorkRecordProjectIsOptional(t *testing.T) {
@@ -332,7 +345,7 @@ func TestCompleteMyTodoCreatesRecordOnGivenDate(t *testing.T) {
 	}
 }
 
-func TestCreateMyTodoOnlyNeedsDateAndDescription(t *testing.T) {
+func TestCreateMyTodoOnlyNeedsDate(t *testing.T) {
 	f := newWorkFixture(t)
 
 	resp, errDetail := f.p.CreateMyTodo(f.alice, &model.RequestSaveWorkEntry{Date: "2026-10-01", Description: "write report"})
@@ -343,7 +356,15 @@ func TestCreateMyTodoOnlyNeedsDateAndDescription(t *testing.T) {
 		t.Errorf("todo = %+v", resp.Todo)
 	}
 
-	_, errDetail = f.p.CreateMyTodo(f.alice, &model.RequestSaveWorkEntry{Date: "2026-10-01", Description: " "})
+	resp, errDetail = f.p.CreateMyTodo(f.alice, &model.RequestSaveWorkEntry{Date: "2026-10-01", Description: " "})
+	if errDetail != nil {
+		t.Fatalf("CreateMyTodo blank description: %+v", errDetail)
+	}
+	if resp.Todo.Description != "" {
+		t.Errorf("description = %q, want empty", resp.Todo.Description)
+	}
+
+	_, errDetail = f.p.CreateMyTodo(f.alice, &model.RequestSaveWorkEntry{Description: "no date"})
 	expectStatus(t, errDetail, http.StatusBadRequest)
 }
 

@@ -16,13 +16,12 @@ func TestWorkRecords(t *testing.T) {
 
 	t.Run("validation", func(t *testing.T) {
 		cases := map[string]map[string]any{
-			"no category":       entry("2026-09-01", "", 1, "x"),
-			"no hours":          entry("2026-09-01", category, 0, "x"),
-			"not half hours":    entry("2026-09-01", category, 1.3, "x"),
-			"too many hours":    entry("2026-09-01", category, 24.5, "x"),
-			"bad date":          entry("2026/09/01", category, 1, "x"),
-			"blank description": entry("2026-09-01", category, 1, " "),
-			"unknown category":  entry("2026-09-01", "missing", 1, "x"),
+			"no category":      entry("2026-09-01", "", 1, "x"),
+			"no hours":         entry("2026-09-01", category, 0, "x"),
+			"not half hours":   entry("2026-09-01", category, 1.3, "x"),
+			"too many hours":   entry("2026-09-01", category, 24.5, "x"),
+			"bad date":         entry("2026/09/01", category, 1, "x"),
+			"unknown category": entry("2026-09-01", "missing", 1, "x"),
 			"unknown project": func() map[string]any {
 				e := entry("2026-09-01", category, 1, "x")
 				e["projectId"] = "missing"
@@ -38,6 +37,13 @@ func TestWorkRecords(t *testing.T) {
 		record := createRecord(t, alice, entry("2026-09-01", category, 1.5, "no project"))
 		if record["projectId"] != "" || record["hours"] != 1.5 || record["account"] != "ALICE" {
 			t.Errorf("record = %v", record)
+		}
+	})
+
+	t.Run("the description may be blank", func(t *testing.T) {
+		record := createRecord(t, alice, entry("2026-08-31", category, 1, " "))
+		if record["description"] != "" {
+			t.Errorf("description = %q", record["description"])
 		}
 	})
 

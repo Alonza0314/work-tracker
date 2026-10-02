@@ -19,13 +19,20 @@ func TestTodos(t *testing.T) {
 		return r.list("todos")
 	}
 
-	t.Run("a todo only needs a date and a description", func(t *testing.T) {
+	t.Run("a todo only needs a date", func(t *testing.T) {
 		r := alice.post("/api/me/todos", entry("2026-10-02", "", 0, "write the report"))
 		expect(t, r, http.StatusOK, "minimal todo")
 		if todo := r.obj("todo"); todo["categoryId"] != "" || todo["hours"] != float64(0) {
 			t.Errorf("todo = %v", todo)
 		}
-		expect(t, alice.post("/api/me/todos", entry("2026-10-02", "", 0, " ")), http.StatusBadRequest, "blank description")
+		blank := alice.post("/api/me/todos", entry("2026-10-02", "", 0, " "))
+		expect(t, blank, http.StatusOK, "blank description")
+		if todo := blank.obj("todo"); todo["description"] != "" {
+			t.Errorf("todo = %v", todo)
+		} else {
+			expect(t, alice.del("/api/me/todos/"+todo["id"].(string)), http.StatusOK, "delete blank todo")
+		}
+		expect(t, alice.post("/api/me/todos", entry("", "", 0, "no date")), http.StatusBadRequest, "no date")
 		expect(t, alice.post("/api/me/todos", entry("2026-10-02", "", 1.3, "x")), http.StatusBadRequest, "not half hours")
 	})
 

@@ -110,11 +110,11 @@ type ResponseWorkSetting struct {
 
 // RequestSaveWorkEntry creates or fully replaces a work record or a todo.
 // Which of categoryId/hours are required depends on the target (see
-// processor.checkWorkEntry); projectId is always optional.
+// processor.checkWorkEntry); description and projectId are always optional.
 type RequestSaveWorkEntry struct {
 	Date        string  `json:"date" binding:"required"`
 	CategoryID  string  `json:"categoryId"`
-	Description string  `json:"description" binding:"required"`
+	Description string  `json:"description"`
 	Hours       float64 `json:"hours" binding:"omitempty,gt=0,lte=24"`
 	ProjectID   string  `json:"projectId"`
 }
