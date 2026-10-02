@@ -2,7 +2,8 @@ import type { SaveWorkEntryRequest, WorkRecord } from '../../api'
 import type { MessageKey } from '../../i18n/locales/en'
 import { isValidHours, today } from '../../work/format'
 
-// record: category and hours required; todo: only date (description is always optional)
+// nothing is required: records always carry a date (today by default),
+// todos may have none, and empty hours count as 0
 export type EntryKind = 'record' | 'todo'
 
 // the editable form of an entry: every field as its input's string value
@@ -14,9 +15,10 @@ export interface EntryDraft {
   projectId: string
 }
 
-export function draftFrom(entry?: WorkRecord): EntryDraft {
+// a new record starts on today, a new todo without a date
+export function draftFrom(entry: WorkRecord | undefined, kind: EntryKind): EntryDraft {
   return {
-    date: entry?.date ?? today(),
+    date: entry ? entry.date : (kind === 'record' ? today() : ''),
     categoryId: entry?.categoryId ?? '',
     description: entry?.description ?? '',
     hours: entry?.hours ? String(entry.hours) : '',
@@ -36,28 +38,20 @@ export type DraftResult =
   | { request: SaveWorkEntryRequest }
   | { error: MessageKey }
 
-export function draftToRequest(draft: EntryDraft, kind: EntryKind): DraftResult {
-  const required = kind === 'record'
-  const description = draft.description.trim()
-  if (!draft.date || (required && !draft.categoryId)) {
-    return { error: 'work.required' }
-  }
-
+export function draftToRequest(draft: EntryDraft): DraftResult {
   let hours: number | undefined
   if (draft.hours.trim() !== '') {
     hours = Number(draft.hours)
     if (!isValidHours(hours)) {
       return { error: 'work.hoursStep' }
     }
-  } else if (required) {
-    return { error: 'work.required' }
   }
 
   return {
     request: {
-      date: draft.date,
+      date: draft.date || undefined,
       categoryId: draft.categoryId || undefined,
-      description,
+      description: draft.description.trim(),
       hours,
       projectId: draft.projectId || undefined,
     },

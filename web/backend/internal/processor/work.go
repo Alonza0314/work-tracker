@@ -14,15 +14,17 @@ import (
 	"time"
 )
 
-// workEntryRule lists the optional WorkEntry fields a target requires.
+// workEntryRule says how a target treats a missing date; every other
+// WorkEntry field is optional for both (unset hours count as 0).
 type workEntryRule struct {
-	category bool
-	hours    bool
+	// records always have a date: a missing one becomes the server's today;
+	// todos may have none
+	defaultDate bool
 }
 
 var (
-	workRecordRule = workEntryRule{category: true, hours: true}
-	todoRule       = workEntryRule{category: false, hours: false}
+	workRecordRule = workEntryRule{defaultDate: true}
+	todoRule       = workEntryRule{defaultDate: false}
 )
 
 // workOptionStore adapts the category and project storage to shared logic.
@@ -474,7 +476,7 @@ func (p *Processor) DeleteMyTodo(acc *model.Account, id string) (*model.Response
 func (p *Processor) CompleteMyTodo(acc *model.Account, id string, req *model.RequestCompleteTodo) (*model.ResponseWorkRecord, *model.ErrorDetail) {
 	p.ProcLog.Debugf("Processing complete todo %s for %s", id, acc.Account)
 
-	if !isWorkDate(req.Date) {
+	if req.Date != "" && !isWorkDate(req.Date) {
 		return nil, errBadRequest("Date must be YYYY-MM-DD")
 	}
 
@@ -483,12 +485,17 @@ func (p *Processor) CompleteMyTodo(acc *model.Account, id string, req *model.Req
 		return nil, errDetail
 	}
 
+	// the record keeps the todo's date; a todo without one takes the client's
+	// today (req.Date), or else the server's
 	fill := &model.RequestSaveWorkEntry{
-		Date:        req.Date,
+		Date:        todo.Date,
 		CategoryID:  todo.CategoryID,
 		Description: todo.Description,
 		Hours:       todo.Hours,
 		ProjectID:   todo.ProjectID,
+	}
+	if fill.Date == "" {
+		fill.Date = req.Date
 	}
 	if req.CategoryID != "" {
 		fill.CategoryID = req.CategoryID
@@ -649,17 +656,18 @@ func checkWorkRange(from, to string) *model.ErrorDetail {
 // stored entry when updating: an option that was deactivated after it was
 // chosen is still accepted as long as it is not changed.
 func (p *Processor) checkWorkEntry(req *model.RequestSaveWorkEntry, prev *model.WorkEntry, rule workEntryRule) (*model.WorkEntry, *model.ErrorDetail) {
-	if !isWorkDate(req.Date) {
+	date := req.Date
+	if date == "" && rule.defaultDate {
+		date = p.today()
+	}
+	if date != "" && !isWorkDate(date) {
 		return nil, errBadRequest("Date must be YYYY-MM-DD")
 	}
-	if req.Hours < 0 || req.Hours > constant.WORK_MAX_HOURS || (rule.hours && req.Hours == 0) {
-		return nil, errBadRequest("Hours must be greater than 0 and at most 24")
+	if req.Hours < 0 || req.Hours > constant.WORK_MAX_HOURS {
+		return nil, errBadRequest("Hours must be between 0 and 24")
 	}
 	if steps := req.Hours / constant.WORK_HOURS_STEP; steps != math.Trunc(steps) {
 		return nil, errBadRequest("Hours must be a multiple of 0.5")
-	}
-	if rule.category && req.CategoryID == "" {
-		return nil, errBadRequest("Category is required")
 	}
 	description := strings.TrimSpace(req.Description)
 
@@ -679,7 +687,7 @@ func (p *Processor) checkWorkEntry(req *model.RequestSaveWorkEntry, prev *model.
 	}
 
 	return &model.WorkEntry{
-		Date:        req.Date,
+		Date:        date,
 		CategoryID:  req.CategoryID,
 		Description: description,
 		Hours:       req.Hours,
@@ -728,6 +736,11 @@ func leastUsedColor(categories []*model.WorkOption) string {
 		}
 	}
 	return best
+}
+
+// today is the server's local date (YYYY-MM-DD).
+func (p *Processor) today() string {
+	return p.now().In(time.Local).Format(constant.WORK_DATE_LAYOUT)
 }
 
 func isWorkDate(date string) bool {

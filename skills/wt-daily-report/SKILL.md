@@ -31,7 +31,7 @@ WT="python3 ~/.claude/skills/wt-daily-report/scripts/wt.py"
 
    - Group by project; records without a project are grouped by category.
    - Keep each description's meaning; shorten only long ones. Multi-line descriptions may become sub-bullets.
-   - A record with an empty description is listed by its category name, e.g. `- 會議 (1h)`.
+   - A record with an empty description is listed by its category name, e.g. `- 會議 (1h)`; one with neither is listed as `- (未填寫) (<hours>h)`.
    - Report only what is in the records. Do not add a plan for today or anything else the records don't say.
 4. **No records** (`records` is empty): say that nothing was logged on that date and offer to log it with the
    `wt-log-work` skill.

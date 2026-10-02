@@ -19,7 +19,7 @@ func TestTodos(t *testing.T) {
 		return r.list("todos")
 	}
 
-	t.Run("a todo only needs a date", func(t *testing.T) {
+	t.Run("nothing is required, not even a date", func(t *testing.T) {
 		r := alice.post("/api/me/todos", entry("2026-10-02", "", 0, "write the report"))
 		expect(t, r, http.StatusOK, "minimal todo")
 		if todo := r.obj("todo"); todo["categoryId"] != "" || todo["hours"] != float64(0) {
@@ -32,7 +32,13 @@ func TestTodos(t *testing.T) {
 		} else {
 			expect(t, alice.del("/api/me/todos/"+todo["id"].(string)), http.StatusOK, "delete blank todo")
 		}
-		expect(t, alice.post("/api/me/todos", entry("", "", 0, "no date")), http.StatusBadRequest, "no date")
+		undated := alice.post("/api/me/todos", entry("", "", 0, "some day"))
+		expect(t, undated, http.StatusOK, "no date")
+		if todo := undated.obj("todo"); todo["date"] != "" {
+			t.Errorf("todo = %v", todo)
+		} else {
+			expect(t, alice.del("/api/me/todos/"+todo["id"].(string)), http.StatusOK, "delete undated todo")
+		}
 		expect(t, alice.post("/api/me/todos", entry("2026-10-02", "", 1.3, "x")), http.StatusBadRequest, "not half hours")
 	})
 
@@ -43,32 +49,36 @@ func TestTodos(t *testing.T) {
 		}
 	})
 
-	t.Run("complete a todo with a category and hours", func(t *testing.T) {
-		todo := listTodos(t)[0] // review, has category and hours
-		r := alice.post("/api/me/todos/"+todo["id"].(string)+"/complete", map[string]string{"date": "2026-09-30"})
+	t.Run("a completed todo keeps its date", func(t *testing.T) {
+		todo := listTodos(t)[0] // review on 2026-10-01, has category and hours
+		r := alice.post("/api/me/todos/"+todo["id"].(string)+"/complete", map[string]string{"date": "2026-10-05"})
 		expect(t, r, http.StatusOK, "complete")
-		if record := r.obj("record"); record["date"] != "2026-09-30" || record["description"] != "review" || record["hours"] != float64(2) {
+		if record := r.obj("record"); record["date"] != "2026-10-01" || record["description"] != "review" || record["hours"] != float64(2) {
 			t.Errorf("record = %v", record)
 		}
 		if len(listTodos(t)) != 1 {
 			t.Error("completed todo still listed")
 		}
-		if alice.get("/api/me/work-records?from=2026-09-30&to=2026-09-30").num("total") != 1 {
+		if alice.get("/api/me/work-records?from=2026-10-01&to=2026-10-01").num("total") != 1 {
 			t.Error("completed todo is not a work record")
 		}
 	})
 
-	t.Run("a todo without category or hours needs them to complete", func(t *testing.T) {
+	t.Run("a todo without category or hours completes as is", func(t *testing.T) {
 		todo := listTodos(t)[0] // write the report
-		path := "/api/me/todos/" + todo["id"].(string) + "/complete"
-		expect(t, alice.post(path, map[string]string{"date": "2026-09-30"}), http.StatusBadRequest, "complete without fill")
-		if len(listTodos(t)) != 1 {
-			t.Fatal("a failed completion removed the todo")
+		r := alice.post("/api/me/todos/"+todo["id"].(string)+"/complete", map[string]string{"date": "2026-10-05"})
+		expect(t, r, http.StatusOK, "complete")
+		if record := r.obj("record"); record["date"] != "2026-10-02" || record["categoryId"] != "" || record["hours"] != float64(0) {
+			t.Errorf("record = %v", record)
 		}
+	})
 
-		r := alice.post(path, map[string]any{"date": "2026-09-30", "categoryId": category, "hours": 1.5})
-		expect(t, r, http.StatusOK, "complete with fill")
-		if record := r.obj("record"); record["categoryId"] != category || record["hours"] != 1.5 {
+	t.Run("an undated todo completes on the client's today", func(t *testing.T) {
+		r := alice.post("/api/me/todos", entry("", "", 0, "some day"))
+		expect(t, r, http.StatusOK, "undated todo")
+		r = alice.post("/api/me/todos/"+r.obj("todo")["id"].(string)+"/complete", map[string]string{"date": "2026-10-05"})
+		expect(t, r, http.StatusOK, "complete")
+		if record := r.obj("record"); record["date"] != "2026-10-05" {
 			t.Errorf("record = %v", record)
 		}
 	})

@@ -66,10 +66,13 @@ export interface ChangeMyPasswordRequest {
     'newPassword': string;
 }
 /**
- * categoryId, hours and projectId fill or override the todo\'s; the resulting record needs a category and hours.
+ * categoryId, hours and projectId fill or override the todo\'s.
  */
 export interface CompleteTodoRequest {
-    'date': string;
+    /**
+     * The client\'s today, used only when the todo has no date (else the server\'s today).
+     */
+    'date'?: string;
     'categoryId'?: string;
     'hours'?: number;
     'projectId'?: string;
@@ -227,10 +230,10 @@ export interface SaveHolidayRequest {
 
 
 /**
- * Work records require categoryId and hours; todos only require date. description and projectId are always optional.
+ * Every field is optional. A work record without a date is dated the server\'s today; a todo may have no date. Unset hours count as 0.
  */
 export interface SaveWorkEntryRequest {
-    'date': string;
+    'date'?: string;
     'categoryId'?: string;
     'description'?: string;
     'hours'?: number;
@@ -360,7 +363,7 @@ export interface WorkOptionsResponse {
     'startDate'?: string;
 }
 /**
- * Optional fields are empty (\"\" / 0) when not set. Records always have categoryId and hours; todos may not.
+ * Optional fields are empty (\"\" / 0) when not set. Every field is optional, but records always have a date; todos may not.
  */
 export interface WorkRecord {
     'id': string;
@@ -433,7 +436,7 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             };
         },
         /**
-         * Deletes the todo and adds it as a work record dated `date` (the client\'s today). Answers 400 and keeps the todo when the record would lack a category or hours.
+         * Deletes the todo and adds it as a work record with the todo\'s date; a todo without a date takes `date` (the client\'s today).
          * @summary Complete a todo
          * @param {string} id 
          * @param {CompleteTodoRequest} completeTodoRequest 
@@ -1999,7 +2002,7 @@ export const DefaultApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
-         * Deletes the todo and adds it as a work record dated `date` (the client\'s today). Answers 400 and keeps the todo when the record would lack a category or hours.
+         * Deletes the todo and adds it as a work record with the todo\'s date; a todo without a date takes `date` (the client\'s today).
          * @summary Complete a todo
          * @param {string} id 
          * @param {CompleteTodoRequest} completeTodoRequest 
@@ -2528,7 +2531,7 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
             return localVarFp.changeMyPassword(changeMyPasswordRequest, options).then((request) => request(axios, basePath));
         },
         /**
-         * Deletes the todo and adds it as a work record dated `date` (the client\'s today). Answers 400 and keeps the todo when the record would lack a category or hours.
+         * Deletes the todo and adds it as a work record with the todo\'s date; a todo without a date takes `date` (the client\'s today).
          * @summary Complete a todo
          * @param {string} id 
          * @param {CompleteTodoRequest} completeTodoRequest 
@@ -2939,7 +2942,7 @@ export class DefaultApi extends BaseAPI {
     }
 
     /**
-     * Deletes the todo and adds it as a work record dated `date` (the client\'s today). Answers 400 and keeps the todo when the record would lack a category or hours.
+     * Deletes the todo and adds it as a work record with the todo\'s date; a todo without a date takes `date` (the client\'s today).
      * @summary Complete a todo
      * @param {string} id 
      * @param {CompleteTodoRequest} completeTodoRequest 

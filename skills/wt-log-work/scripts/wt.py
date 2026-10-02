@@ -6,7 +6,7 @@ Every command prints one JSON object. Exit code 0 = ok, 1 = error, 2 = not confi
   setup [--url URL] [--token TOKEN]   save the server URL and API token (prompts when omitted)
   check                               verify the saved config
   options                             active category and project names
-  log --category C --hours H [--description D] [--date D] [--project P] [--dry-run]
+  log [--date D] [--category C] [--hours H] [--description D] [--project P] [--dry-run]
   records --from DATE --to DATE       my work records in a date range
   last-workday [--before DATE]        the workday before DATE (default today)
   daily [--date DATE | --today DATE]  my records of DATE, or of the workday before --today
@@ -147,8 +147,8 @@ def parse_hours(value):
         hours = float(value)
     except (TypeError, ValueError):
         raise WtError("invalid hours %r" % value)
-    if not 0 < hours <= MAX_HOURS or (hours / HOURS_STEP) != int(hours / HOURS_STEP):
-        raise WtError("hours must be in (0, %d] in steps of %s, got %s" % (MAX_HOURS, HOURS_STEP, value))
+    if not 0 <= hours <= MAX_HOURS or (hours / HOURS_STEP) != int(hours / HOURS_STEP):
+        raise WtError("hours must be in [0, %d] in steps of %s, got %s" % (MAX_HOURS, HOURS_STEP, value))
     return int(hours) if hours == int(hours) else hours
 
 
@@ -229,8 +229,9 @@ def cmd_log(args):
 
     api = client()
     options = api.options()
-    category = resolve(options["categories"], args.category, "category")
-    body = {"date": day.isoformat(), "categoryId": category["id"], "description": description, "hours": hours}
+    body = {"date": day.isoformat(), "description": description, "hours": hours}
+    if args.category:
+        body["categoryId"] = resolve(options["categories"], args.category, "category")["id"]
     if args.project:
         body["projectId"] = resolve(options["projects"], args.project, "project")["id"]
 
@@ -280,9 +281,9 @@ def parser():
 
     s = sub.add_parser("log", help="add one work record")
     s.add_argument("--date", help="YYYY-MM-DD, default today")
-    s.add_argument("--category", required=True)
+    s.add_argument("--category", help="may be omitted")
     s.add_argument("--project")
-    s.add_argument("--hours", required=True)
+    s.add_argument("--hours", default="0", help="default 0")
     s.add_argument("--description", default="", help="may be empty")
     s.add_argument("--dry-run", action="store_true", help="validate without saving")
     s.set_defaults(run=cmd_log)

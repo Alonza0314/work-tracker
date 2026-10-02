@@ -184,6 +184,13 @@ class LogTest(WtTestCase):
         self.assertEqual(code, 0)
         self.assertNotIn("projectId", self.api.requests[-1][3])
 
+    def test_log_needs_nothing(self):
+        code, result = self.run_wt("log", "--date", "2026-10-01")
+        self.assertEqual(code, 0, result)
+        self.assertEqual(self.api.requests[-1][3], {"date": "2026-10-01", "description": "", "hours": 0})
+        self.assertEqual(result["record"]["category"], "")
+        self.assertEqual(result["record"]["hours"], 0)
+
     def test_log_without_description(self):
         for extra in ((), ("--description", "  ")):
             code, result = self.run_wt("log", "--date", "2026-10-01", "--category", "Meeting",
@@ -205,7 +212,7 @@ class LogTest(WtTestCase):
         self.assertFalse(any(r[0] == "POST" for r in self.api.requests))
 
     def test_log_rejects_bad_hours_and_dates(self):
-        for hours in ("0", "1.2", "24.5", "abc"):
+        for hours in ("-1", "1.2", "24.5", "abc"):
             code, result = self.run_wt("log", "--date", "2026-10-01", "--category", "Meeting",
                                        "--hours", hours, "--description", "x")
             self.assertEqual(code, 1, hours)

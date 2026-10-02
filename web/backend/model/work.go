@@ -109,10 +109,10 @@ type ResponseWorkSetting struct {
 }
 
 // RequestSaveWorkEntry creates or fully replaces a work record or a todo.
-// Which of categoryId/hours are required depends on the target (see
-// processor.checkWorkEntry); description and projectId are always optional.
+// Every field is optional: a record without a date gets today, a todo may
+// have none, and unset hours are 0 (see processor.checkWorkEntry).
 type RequestSaveWorkEntry struct {
-	Date        string  `json:"date" binding:"required"`
+	Date        string  `json:"date"`
 	CategoryID  string  `json:"categoryId"`
 	Description string  `json:"description"`
 	Hours       float64 `json:"hours" binding:"omitempty,gt=0,lte=24"`
@@ -167,9 +167,10 @@ type ResponseDeleteTodo struct {
 }
 
 // RequestCompleteTodo optionally fills (or overrides) the todo's category,
-// hours and project, since a work record needs a category and hours.
+// hours and project. The record keeps the todo's date; Date (the client's
+// today) is only used for a todo without one.
 type RequestCompleteTodo struct {
-	Date       string  `json:"date" binding:"required"`
+	Date       string  `json:"date"`
 	CategoryID string  `json:"categoryId"`
 	Hours      float64 `json:"hours" binding:"omitempty,gt=0,lte=24"`
 	ProjectID  string  `json:"projectId"`

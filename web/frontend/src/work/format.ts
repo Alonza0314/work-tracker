@@ -34,6 +34,15 @@ export function weekEnd(start: string): string {
   return addDays(start, 6)
 }
 
+// a period of `weeks` weeks ending with the week of date
+export function periodStart(date: string, weeks: number): string {
+  return addDays(weekStart(date), -7 * (weeks - 1))
+}
+
+export function periodEnd(start: string, weeks: number): string {
+  return addDays(start, 7 * weeks - 1)
+}
+
 export type Quarter = 1 | 2 | 3 | 4
 
 export function quarterOf(date: string): Quarter {
@@ -59,7 +68,7 @@ export function selectableOptions(options: WorkOption[], currentId?: string): Wo
 
 // hours are positive half-hour steps up to 24
 export function isValidHours(hours: number): boolean {
-  return hours > 0 && hours <= 24 && Number.isInteger(hours * 2)
+  return hours >= 0 && hours <= 24 && Number.isInteger(hours * 2)
 }
 
 export function optionColor(options: WorkOption[], id: string): CategoryColor | undefined {

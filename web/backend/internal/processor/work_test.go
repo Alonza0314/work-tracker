@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"slices"
 	"testing"
+	"time"
 )
 
 // workFixture is a processor with one active category and project, plus a
@@ -131,7 +132,7 @@ func TestCreateMyWorkRecordValidatesEntry(t *testing.T) {
 
 	cases := map[string]func(*model.RequestSaveWorkEntry){
 		"bad date":         func(e *model.RequestSaveWorkEntry) { e.Date = "2026/09/01" },
-		"zero hours":       func(e *model.RequestSaveWorkEntry) { e.Hours = 0 },
+		"negative hours":   func(e *model.RequestSaveWorkEntry) { e.Hours = -1 },
 		"too many hours":   func(e *model.RequestSaveWorkEntry) { e.Hours = 24.5 },
 		"not half hours":   func(e *model.RequestSaveWorkEntry) { e.Hours = 1.3 },
 		"unknown category": func(e *model.RequestSaveWorkEntry) { e.CategoryID = "missing" },
@@ -147,16 +148,28 @@ func TestCreateMyWorkRecordValidatesEntry(t *testing.T) {
 	}
 }
 
-func TestCreateMyWorkRecordRequiresCategoryAndHours(t *testing.T) {
+// Rows may be added empty and filled in later: nothing is required, a
+// missing date becomes today and missing hours count as 0.
+func TestCreateMyWorkRecordNeedsNothing(t *testing.T) {
 	f := newWorkFixture(t)
+	f.p.now = func() time.Time { return time.Date(2026, 10, 2, 9, 0, 0, 0, time.Local) }
 
-	noCategory := f.entry("2026-09-01", 1)
-	noCategory.CategoryID = ""
-	_, errDetail := f.p.CreateMyWorkRecord(f.alice, noCategory)
-	expectStatus(t, errDetail, http.StatusBadRequest)
+	resp, errDetail := f.p.CreateMyWorkRecord(f.alice, &model.RequestSaveWorkEntry{})
+	if errDetail != nil {
+		t.Fatalf("CreateMyWorkRecord: %+v", errDetail)
+	}
+	if r := resp.Record; r.Date != "2026-10-02" || r.CategoryID != "" || r.Hours != 0 || r.Description != "" || r.ProjectID != "" {
+		t.Errorf("record = %+v", r)
+	}
 
-	_, errDetail = f.p.CreateMyWorkRecord(f.alice, f.entry("2026-09-01", 0))
-	expectStatus(t, errDetail, http.StatusBadRequest)
+	// an existing record can be emptied again, but keeps a date
+	resp, errDetail = f.p.UpdateMyWorkRecord(f.alice, f.mustCreateRecord(t, f.alice, "2026-09-01", 1).ID, &model.RequestSaveWorkEntry{Date: "2026-09-01"})
+	if errDetail != nil {
+		t.Fatalf("UpdateMyWorkRecord: %+v", errDetail)
+	}
+	if r := resp.Record; r.Date != "2026-09-01" || r.CategoryID != "" || r.Hours != 0 {
+		t.Errorf("record = %+v", r)
+	}
 }
 
 func TestCreateMyWorkRecordDescriptionIsOptional(t *testing.T) {
@@ -326,15 +339,16 @@ func TestTodoLifecycle(t *testing.T) {
 	}
 }
 
-func TestCompleteMyTodoCreatesRecordOnGivenDate(t *testing.T) {
+func TestCompleteMyTodoKeepsTheTodoDate(t *testing.T) {
 	f := newWorkFixture(t)
 	todo, _ := f.p.CreateMyTodo(f.alice, f.entry("2026-10-01", 2))
 
-	resp, errDetail := f.p.CompleteMyTodo(f.alice, todo.Todo.ID, &model.RequestCompleteTodo{Date: "2026-09-29"})
+	// the client's today is only for todos without a date
+	resp, errDetail := f.p.CompleteMyTodo(f.alice, todo.Todo.ID, &model.RequestCompleteTodo{Date: "2026-10-05"})
 	if errDetail != nil {
 		t.Fatalf("CompleteMyTodo: %+v", errDetail)
 	}
-	if resp.Record.Date != "2026-09-29" || resp.Record.Hours != 2 || resp.Record.Account != "ALICE" || resp.Record.Description != "did something" {
+	if resp.Record.Date != "2026-10-01" || resp.Record.Hours != 2 || resp.Record.Account != "ALICE" || resp.Record.Description != "did something" {
 		t.Errorf("record = %+v", resp.Record)
 	}
 
@@ -345,7 +359,7 @@ func TestCompleteMyTodoCreatesRecordOnGivenDate(t *testing.T) {
 	}
 }
 
-func TestCreateMyTodoOnlyNeedsDate(t *testing.T) {
+func TestCreateMyTodoNeedsNothing(t *testing.T) {
 	f := newWorkFixture(t)
 
 	resp, errDetail := f.p.CreateMyTodo(f.alice, &model.RequestSaveWorkEntry{Date: "2026-10-01", Description: "write report"})
@@ -364,8 +378,42 @@ func TestCreateMyTodoOnlyNeedsDate(t *testing.T) {
 		t.Errorf("description = %q, want empty", resp.Todo.Description)
 	}
 
-	_, errDetail = f.p.CreateMyTodo(f.alice, &model.RequestSaveWorkEntry{Description: "no date"})
-	expectStatus(t, errDetail, http.StatusBadRequest)
+	// a todo may have no date at all
+	resp, errDetail = f.p.CreateMyTodo(f.alice, &model.RequestSaveWorkEntry{Description: "some day"})
+	if errDetail != nil {
+		t.Fatalf("CreateMyTodo without a date: %+v", errDetail)
+	}
+	if resp.Todo.Date != "" {
+		t.Errorf("date = %q, want empty", resp.Todo.Date)
+	}
+
+	// undated todos are listed first
+	todos, _ := f.p.ListMyTodos(f.alice)
+	if len(todos.Todos) != 3 || todos.Todos[0].Description != "some day" {
+		t.Errorf("todos = %+v", todos.Todos)
+	}
+}
+
+func TestCompleteUndatedTodo(t *testing.T) {
+	f := newWorkFixture(t)
+	f.p.now = func() time.Time { return time.Date(2026, 10, 2, 9, 0, 0, 0, time.Local) }
+	undated := func() string {
+		resp, errDetail := f.p.CreateMyTodo(f.alice, &model.RequestSaveWorkEntry{Description: "some day"})
+		if errDetail != nil {
+			t.Fatal(errDetail)
+		}
+		return resp.Todo.ID
+	}
+
+	// the client's today, or else the server's
+	resp, errDetail := f.p.CompleteMyTodo(f.alice, undated(), &model.RequestCompleteTodo{Date: "2026-10-03"})
+	if errDetail != nil || resp.Record.Date != "2026-10-03" {
+		t.Errorf("with client date: %+v, %+v", resp, errDetail)
+	}
+	resp, errDetail = f.p.CompleteMyTodo(f.alice, undated(), &model.RequestCompleteTodo{})
+	if errDetail != nil || resp.Record.Date != "2026-10-02" {
+		t.Errorf("without client date: %+v, %+v", resp, errDetail)
+	}
 }
 
 func TestCreateMyTodoStillValidatesGivenOptions(t *testing.T) {
@@ -377,16 +425,16 @@ func TestCreateMyTodoStillValidatesGivenOptions(t *testing.T) {
 	expectStatus(t, errDetail, http.StatusBadRequest)
 }
 
-func TestCompleteMyTodoNeedsCategoryAndHours(t *testing.T) {
+func TestCompleteMyTodoWithoutCategoryOrHours(t *testing.T) {
 	f := newWorkFixture(t)
 	todo, _ := f.p.CreateMyTodo(f.alice, &model.RequestSaveWorkEntry{Date: "2026-10-01", Description: "write report"})
 
-	_, errDetail := f.p.CompleteMyTodo(f.alice, todo.Todo.ID, &model.RequestCompleteTodo{Date: "2026-09-29"})
-	expectStatus(t, errDetail, http.StatusBadRequest)
-
-	todos, _ := f.p.ListMyTodos(f.alice)
-	if len(todos.Todos) != 1 {
-		t.Fatalf("todo removed after a failed completion")
+	resp, errDetail := f.p.CompleteMyTodo(f.alice, todo.Todo.ID, &model.RequestCompleteTodo{Date: "2026-10-02"})
+	if errDetail != nil {
+		t.Fatalf("CompleteMyTodo: %+v", errDetail)
+	}
+	if r := resp.Record; r.Date != "2026-10-01" || r.CategoryID != "" || r.Hours != 0 {
+		t.Errorf("record = %+v", r)
 	}
 }
 
@@ -502,11 +550,6 @@ func TestDeleteWorkCategoryClearsEntries(t *testing.T) {
 		t.Errorf("record = %+v", records.Records[0])
 	}
 
-	// a record left without a category must get one when edited
-	entry := f.entry("2026-09-01", 1)
-	entry.CategoryID = ""
-	_, errDetail = f.p.UpdateMyWorkRecord(f.alice, record.ID, entry)
-	expectStatus(t, errDetail, http.StatusBadRequest)
 }
 
 func TestDeleteWorkProject(t *testing.T) {

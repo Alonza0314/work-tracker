@@ -141,7 +141,7 @@ Task categories and projects for the work table, managed by admins on the Work S
 
 #### `work`
 
-Work records. The UI lists them one week (Monday to Sunday) at a time. The newest date is listed first, and records on the same day are ordered latest-created first.
+Work records. My Work lists them two weeks (Monday to Sunday) at a time. The newest date is listed first, and records on the same day are ordered latest-created first.
 
 | Key | Value |
 | - | - |
@@ -152,9 +152,9 @@ Work records. The UI lists them one week (Monday to Sunday) at a time. The newes
 | `id` | string | Same as the key. |
 | `account` | string | Owner (`account` bucket key, upper case). Records are kept when the user is deleted. |
 | `date` | string | Work date, `YYYY-MM-DD`. |
-| `categoryId` | string | `category` bucket key. Required for records; `""` when a todo has none. |
+| `categoryId` | string | `category` bucket key, or `""` when unset. |
 | `description` | string | What was done. May be empty. |
-| `hours` | number | Time spent in half-hour steps (0.5, 1, 1.5, …), at most 24. Required for records; `0` when a todo has none. |
+| `hours` | number | Time spent in half-hour steps (0, 0.5, 1, …), at most 24. `0` when unset. |
 | `projectId` | string | `project` bucket key. Optional: `""` when not set. |
 | `createdAt` | string | RFC 3339 creation time. |
 
@@ -173,7 +173,7 @@ Work records. The UI lists them one week (Monday to Sunday) at a time. The newes
 
 #### `todo`
 
-Todos, stored as JSON of `model.Todo`. The fields are the same as in `work`, but only `date` is required. `categoryId`, `description`, `hours` and `projectId` may be empty.
+Todos, stored as JSON of `model.Todo`. The fields are the same as in `work`, and none is required: a todo may also have no `date` (`""`). Completing a todo turns it into a work record with the todo's date, or the client's today when it has none.
 
 Completing a todo deletes it from this bucket and creates a `work` record dated on the completion day, in a single transaction. If the todo has no category or hours, the user must fill them in when completing it.
 
@@ -312,12 +312,12 @@ CI runs the cases in the "Integration test" step of the `Build Check` job in `.g
 | `TestBackupRestore` | `system_test.go` | downloading a backup zip (manifest plus one JSON file per table); only admins back up or restore; restoring brings back users, records and API tokens, and new IDs continue after the restored ones; non-zip, another app's zip or a missing file field → 400 without changing data |
 | `TestReset` | `system_test.go` | a reset needs `{"confirm": "RESET"}` (→ 400) and an admin (→ 403); it leaves only the config admin and old tokens stop working |
 | `TestStress` | `stress_test.go` | load: every user writes records at once while others read everyone's table (no failed request, no lost write, every read is a consistent snapshot whose count never goes back); concurrent updates and deletes; 20 racing completions of one todo create exactly one record (the rest → 404); concurrent logins and API token calls; a backup taken during writes is a valid snapshot. Logs requests per second and p50/p95/max latency. Heavier run: `WT_STRESS_USERS=50 WT_STRESS_RECORDS=400 ./test.sh TestStress` |
-| `TestTodos` | `todos_test.go` | a todo needs only a date (the description may be blank); todos are listed by date; completing one creates a work record on the given date; a todo without category or hours needs them to complete (→ 400, todo kept); update and delete; other people's todos → 404 |
+| `TestTodos` | `todos_test.go` | nothing is required, not even a date; todos are listed by date; a completed todo becomes a work record on its own date (an undated one on the client's today), even without category or hours; update and delete; other people's todos → 404 |
 | `TestUserManagement` | `users_test.go` | creating a user stores the account in upper case with the account as initial password; duplicates → 409, blank name or unknown role → 400; the list is sorted by account; partial updates and password reset; the system admin can't be changed or deleted and admins can't delete themselves (→ 403); default users can't manage users (→ 403); a deleted user's token → 401 |
 | `TestEveryonesWork` | `viewall_test.go` | default users need `allowViewAll` for everyone's records, members and missed entries (→ 403); admins see everyone's records with totals; filters by member (any case), category and project; quarter ranges; the members list; switching `allowViewAll` on and off |
 | `TestWeekSummary` | `weeksummary_test.go` | a plain week needs 40 hours, with per-day logged/required hours; a Friday off → 32 hours; a makeup Saturday adds 8; remaining hours never go below zero; bad date → 400 |
 | `TestWorkOptions` | `workoptions_test.go` | new categories get the least used colors; names are unique ignoring case and not blank; rename, recolor and deactivate (unknown color → 400, project color → 400, unknown ID → 404); everyone reads the options, only admins change them; deleting a category or project clears it from records and todos; work settings update only the given fields |
-| `TestWorkRecords` | `workrecords_test.go` | validation (category and hours required, half-hour steps, dates, unknown or inactive options); the project and the description are optional; multi-line descriptions; listing a range newest first with totals; a range is required and must not be reversed; update and delete; a record keeps a category deactivated after it was chosen; other people's records → 404 |
+| `TestWorkRecords` | `workrecords_test.go` | validation (half-hour steps, dates, unknown or inactive options); nothing is required (no date → today, no hours → 0); multi-line descriptions; listing a range newest first with totals; a range is required and must not be reversed; update and delete; a record keeps a category deactivated after it was chosen; other people's records → 404 |
 
 ## Claude skills
 

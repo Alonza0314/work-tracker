@@ -25,13 +25,13 @@ WT="python3 ~/.claude/skills/wt-log-work/scripts/wt.py"
    | Field | Rule |
    | - | - |
    | date | `YYYY-MM-DD`; default today. Resolve "昨天"/"週一" against today's date. |
-   | category | Required. One of the listed categories. |
-   | hours | Required. Over 0, at most 24, a multiple of 0.5. |
+   | category | Optional. One of the listed categories, or none. |
+   | hours | Optional (empty = 0). At most 24, a multiple of 0.5. |
    | description | Optional; leave it empty when the user gives none. Otherwise keep the user's wording and language. |
    | project | Optional. One of the listed projects, or none. |
 
-   Ask the user when a category or the hours can't be inferred with confidence. Never invent a category or project
-   name; never round hours without saying so.
+   Every field but the date may be left empty: leave out what the user didn't say instead of guessing. Never invent
+   a category or project name; never round hours without saying so.
 4. **Confirm before saving**: show a table (date, category, project, hours, description) and wait for the user's OK.
 5. **Save** each record:
    ```bash

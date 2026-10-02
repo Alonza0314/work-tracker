@@ -86,7 +86,7 @@ interface EntryCellsProps {
 function EntryCells({ kind, draft, row, disabled, onChange, onSelect, onBlur, onKeyDown, autoFocusRef }: EntryCellsProps) {
   const { t } = useI18n()
   const { categories, projects } = useWork()
-  const required = kind === 'record'
+  const isRecord = kind === 'record'
 
   return (
     <>
@@ -97,7 +97,8 @@ function EntryCells({ kind, draft, row, disabled, onChange, onSelect, onBlur, on
           className={styles.cellInput}
           value={draft.date}
           disabled={disabled}
-          onChange={(event) => onChange({ ...draft, date: event.target.value })}
+          // a record always keeps a date: clearing it restores the last one
+          onChange={(event) => onChange({ ...draft, date: event.target.value || (isRecord ? draft.date : '') })}
           onBlur={onBlur}
           onKeyDown={onKeyDown}
           aria-label={t('work.date')}
@@ -112,7 +113,7 @@ function EntryCells({ kind, draft, row, disabled, onChange, onSelect, onBlur, on
           onChange={(event) => onSelect({ ...draft, categoryId: event.target.value })}
           aria-label={t('work.category')}
         >
-          <option value="" disabled={required}>{required ? t('work.select') : '—'}</option>
+          <option value="">—</option>
           {selectableOptions(categories, row?.categoryId).map((option) => (
             <option key={option.id} value={option.id}>{option.name}</option>
           ))}
@@ -134,13 +135,13 @@ function EntryCells({ kind, draft, row, disabled, onChange, onSelect, onBlur, on
         <input
           type="number"
           inputMode="decimal"
-          min={0.5}
+          min={0}
           max={24}
           step={0.5}
           className={`${styles.cellInput} ${styles.cellNumber}`}
           value={draft.hours}
           disabled={disabled}
-          placeholder={required ? 'hr' : '—'}
+          placeholder={isRecord ? '0' : '—'}
           onChange={(event) => onChange({ ...draft, hours: event.target.value })}
           onBlur={onBlur}
           onKeyDown={onKeyDown}
@@ -191,7 +192,7 @@ interface EntryRowProps {
 
 function EntryRow({ kind, row, leading, onUpdate, onDelete, onInvalid }: EntryRowProps) {
   const { t } = useI18n()
-  const saved = draftFrom(row)
+  const saved = draftFrom(row, kind)
   const [draft, setDraft] = useState(saved)
   const [saving, setSaving] = useState(false)
   // set by Escape so the blur that follows does not save
@@ -202,7 +203,7 @@ function EntryRow({ kind, row, leading, onUpdate, onDelete, onInvalid }: EntryRo
       setDraft(saved)
       return
     }
-    const result = draftToRequest(next, kind)
+    const result = draftToRequest(next)
     if ('error' in result) {
       onInvalid(t(result.error))
       setDraft(saved)
@@ -279,12 +280,12 @@ interface NewEntryRowProps {
 // the blank first row: filled in place, added with Enter or the + button
 function NewEntryRow({ kind, hasLeading, onCreate, onInvalid }: NewEntryRowProps) {
   const { t } = useI18n()
-  const [draft, setDraft] = useState(() => draftFrom())
+  const [draft, setDraft] = useState(() => draftFrom(undefined, kind))
   const [saving, setSaving] = useState(false)
   const firstInput = useRef<HTMLInputElement>(null)
 
   async function create() {
-    const result = draftToRequest(draft, kind)
+    const result = draftToRequest(draft)
     if ('error' in result) {
       onInvalid(t(result.error))
       return
@@ -294,7 +295,7 @@ function NewEntryRow({ kind, hasLeading, onCreate, onInvalid }: NewEntryRowProps
     const ok = await onCreate(result.request)
     setSaving(false)
     if (ok) {
-      setDraft(draftFrom())
+      setDraft(draftFrom(undefined, kind))
       firstInput.current?.focus()
     }
   }
@@ -314,7 +315,7 @@ function NewEntryRow({ kind, hasLeading, onCreate, onInvalid }: NewEntryRowProps
             event.preventDefault()
             void create()
           } else if (event.key === 'Escape') {
-            setDraft(draftFrom())
+            setDraft(draftFrom(undefined, kind))
           }
         }}
         autoFocusRef={firstInput}

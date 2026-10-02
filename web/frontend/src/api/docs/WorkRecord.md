@@ -1,6 +1,6 @@
 # WorkRecord
 
-Optional fields are empty (\"\" / 0) when not set. Records always have categoryId and hours; todos may not.
+Optional fields are empty (\"\" / 0) when not set. Every field is optional, but records always have a date; todos may not.
 
 ## Properties
 

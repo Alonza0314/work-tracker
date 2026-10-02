@@ -16,8 +16,6 @@ func TestWorkRecords(t *testing.T) {
 
 	t.Run("validation", func(t *testing.T) {
 		cases := map[string]map[string]any{
-			"no category":      entry("2026-09-01", "", 1, "x"),
-			"no hours":         entry("2026-09-01", category, 0, "x"),
 			"not half hours":   entry("2026-09-01", category, 1.3, "x"),
 			"too many hours":   entry("2026-09-01", category, 24.5, "x"),
 			"bad date":         entry("2026/09/01", category, 1, "x"),
@@ -31,6 +29,14 @@ func TestWorkRecords(t *testing.T) {
 		for name, body := range cases {
 			expect(t, alice.post("/api/me/work-records", body), http.StatusBadRequest, name)
 		}
+	})
+
+	t.Run("nothing is required: no date means today, no hours means 0", func(t *testing.T) {
+		record := createRecord(t, alice, map[string]any{})
+		if record["date"] != date(0) || record["categoryId"] != "" || record["hours"] != float64(0) || record["description"] != "" {
+			t.Errorf("record = %v", record)
+		}
+		expect(t, alice.del("/api/me/work-records/"+record["id"].(string)), http.StatusOK, "delete empty record")
 	})
 
 	t.Run("project is optional, hours in half-hour steps", func(t *testing.T) {

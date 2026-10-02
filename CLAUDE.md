@@ -115,10 +115,10 @@ Request flow: `main.go` → `cmd/wt.go` (cobra; loads YAML config via `util.Load
 
 ### Work table
 
-- **Data**: `model/work.go`. Records and todos share `WorkEntry` (date `YYYY-MM-DD`, categoryId, description, hours in (0, 24] in 0.5 steps (`WORK_HOURS_STEP`), projectId) and are owned by an account.
+- **Data**: `model/work.go`. Records and todos share `WorkEntry` (date `YYYY-MM-DD`, categoryId, description, hours in [0, 24] in 0.5 steps (`WORK_HOURS_STEP`), projectId) and are owned by an account.
   - Unset optional fields are `""` / `0`.
-  - Required fields differ per target through `workEntryRule` in `processor/work.go`. Records need category and hours. Todos only need a date. The description and the project are always optional.
-  - Completing a todo validates the result against the record rule. `RequestCompleteTodo` can fill in the category, hours and project; the frontend opens `CompleteTodoModal` when the todo lacks them.
+  - **Nothing is required** (users may add empty rows and fill them in later). `workEntryRule` in `processor/work.go` only decides the date: a record without one gets the server's today, a todo may have none (undated todos list first). Unset hours count as 0.
+  - Completing a todo keeps the todo's date; `RequestCompleteTodo.date` (the client's today) only fills in a missing one. Its category/hours/project fields can still override the todo's; the frontend completes directly.
 - **Categories and projects**: both are `WorkOption`s, handled by shared logic through `workOptionStore` in `processor/work.go`.
   - Categories have a `color` from `constant.WORK_CATEGORY_COLORS`. New ones get the least used color (`leastUsedColor`); categories without one get a stable color from their ID (`categoryColor`). Projects reject colors.
   - The frontend maps color names to the `--cat-<name>-bg/-fg/-dot` variables in `index.css` (`categoryColorStyle`, `CategoryChip`, `ColorPicker`). They can be deactivated (hidden from new entries) or deleted; deleting one clears it from existing entries, which become uncategorized or project-less.
@@ -127,8 +127,8 @@ Request flow: `main.go` → `cmd/wt.go` (cobra; loads YAML config via `util.Load
   - Everyone's records (`/api/work-records`, `/api/work/members`) are allowed for admins, or for everyone when `setting.work.allowViewAll` is on (`checkViewAll`).
 - **Listing and completion**:
   - Record lists take a required inclusive `from`/`to` date range and return every matching record (no paging), sorted in the processor (date desc, then createdAt desc), with `total` and `totalHours`.
-  - My Work asks for one week, Monday to Sunday (`WeekNavigator` plus `weekStart`/`weekEnd` in `work/format.ts`). The everyone's table can switch between a week and a quarter of a chosen year (`quarterRange`); the year list starts at the work start date's year, or two years back when it is unset.
-  - Completing a todo uses the date sent by the client (its "today"), so the user's time zone decides the day.
+  - My Work asks for two weeks ending with the current one (`WEEKS` in `MyWorkPage`, `WeekNavigator weeks={2}`, `periodStart`/`periodEnd` in `work/format.ts`). The everyone's table can switch between a week and a quarter of a chosen year (`quarterRange`); the year list starts at the work start date's year, or two years back when it is unset.
+  - A todo without a date completes on the date sent by the client (its "today"), so the user's time zone decides the day.
 
 ### Holidays and the weekly target
 
@@ -188,7 +188,7 @@ Request flow: `main.go` → `cmd/wt.go` (cobra; loads YAML config via `util.Load
     - The description is an auto-growing textarea that shows every line: Shift+Enter inserts a line break, and plain Enter still saves.
     - The first row is a blank "new" row, added with Enter or its + button.
     - Each save is a full PUT of the row. Rows remount (key includes their values) after the list reloads.
-    - `entryDraft.ts` converts between entries and editable drafts and applies the per-kind required fields (record vs todo) and the half-hour check (`isValidHours`).
+    - `entryDraft.ts` converts between entries and editable drafts and applies the half-hour check (`isValidHours`). A new record row starts on today, a new todo row with no date; clearing a record's date restores it.
   - `WorkRecordTable` is the read-only table of the everyone's page.
   - The everyone's page exports what it shows (period and filters) as CSV (UTF-8 with a BOM, for Excel) or `.xlsx` via `work/export.ts`. `write-excel-file` is imported dynamically, so it only loads on export.
 - **Auth** (`auth/`): `AuthProvider` holds the session parsed from the JWT in `localStorage.token` (`account`, `name`, `role`, `i18n`, expiry). `useAuth()` returns `{ session, isAdmin, signIn(token), signOut(), changeLocale(locale) }`.

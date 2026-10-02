@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { CompleteTodoRequest, SaveWorkEntryRequest, WorkRecord, WorkRecordListResponse } from '../../api'
+import type { SaveWorkEntryRequest, WorkRecord, WorkRecordListResponse } from '../../api'
 import { api } from '../../apiClient'
 import Modal from '../../components/modal/modal'
 import NotificationContainer from '../../components/notifications/NotificationContainer'
@@ -7,16 +7,17 @@ import Panel from '../../components/panel/Panel'
 import WeekNavigator from '../../components/weekNavigator/WeekNavigator'
 import { useNotifications } from '../../hooks/useNotifications'
 import { useI18n } from '../../i18n/useI18n'
-import { today, weekEnd, weekStart } from '../../work/format'
-import CompleteTodoModal from './CompleteTodoModal'
+import { periodEnd, periodStart, today } from '../../work/format'
 import EditableWorkTable from './EditableWorkTable'
 import styles from './work.module.css'
+
+// the records table shows this many weeks, ending with the current one
+const WEEKS = 2
 
 // todos share the work record shape
 type Dialog =
   | { kind: 'deleteRecord', record: WorkRecord }
   | { kind: 'deleteTodo', todo: WorkRecord }
-  | { kind: 'completeTodo', todo: WorkRecord }
 
 export default function MyWorkPage() {
   const { t } = useI18n()
@@ -24,8 +25,8 @@ export default function MyWorkPage() {
 
   const [todos, setTodos] = useState<WorkRecord[]>([])
   const [records, setRecords] = useState<WorkRecordListResponse | null>(null)
-  // Monday of the shown week
-  const [week, setWeek] = useState(() => weekStart(today()))
+  // Monday of the first shown week
+  const [week, setWeek] = useState(() => periodStart(today(), WEEKS))
   const [dialog, setDialog] = useState<Dialog | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [completing, setCompleting] = useState<string | null>(null)
@@ -41,20 +42,20 @@ export default function MyWorkPage() {
 
   const loadRecords = useCallback(async () => {
     try {
-      const response = await api.listMyWorkRecords(week, weekEnd(week))
+      const response = await api.listMyWorkRecords(week, periodEnd(week, WEEKS))
       setRecords(response.data)
     } catch {
       addError(t('work.loadFailed'))
     }
   }, [addError, week, t])
 
-  // show the week of date: switch to it (which reloads), or reload in place
+  // show date: reload in place when it is shown, else switch to the period
+  // ending with its week (which reloads)
   const showWeekOf = useCallback(async (date: string) => {
-    const target = weekStart(date)
-    if (target !== week) {
-      setWeek(target)
-    } else {
+    if (date >= week && date <= periodEnd(week, WEEKS)) {
       await loadRecords()
+    } else {
+      setWeek(periodStart(date, WEEKS))
     }
   }, [loadRecords, week])
 
@@ -81,7 +82,7 @@ export default function MyWorkPage() {
 
   // a record added for another week switches to that week, so it stays visible
   function createRecord(request: SaveWorkEntryRequest) {
-    return save(() => api.createMyWorkRecord(request), () => showWeekOf(request.date))
+    return save(() => api.createMyWorkRecord(request), () => showWeekOf(request.date ?? today()))
   }
 
   function updateRecord(record: WorkRecord, request: SaveWorkEntryRequest) {
@@ -110,22 +111,13 @@ export default function MyWorkPage() {
     }
   }
 
-  // a todo without a category or hours opens the form to fill them in first
-  function handleTodoChecked(todo: WorkRecord) {
-    if (todo.categoryId && todo.hours > 0) {
-      void completeTodo(todo, { date: today() })
-    } else {
-      setDialog({ kind: 'completeTodo', todo })
-    }
-  }
-
-  async function completeTodo(todo: WorkRecord, request: CompleteTodoRequest) {
+  // the record keeps the todo's date; today only fills in a missing one
+  async function completeTodo(todo: WorkRecord) {
     setCompleting(todo.id)
     try {
-      await api.completeMyTodo(todo.id, request)
-      setDialog(null)
+      const response = await api.completeMyTodo(todo.id, { date: today() })
       addSuccess(t('todos.completed'))
-      await Promise.all([loadTodos(), showWeekOf(request.date)])
+      await Promise.all([loadTodos(), showWeekOf(response.data.record.date)])
     } catch {
       addError(t('todos.completeFailed'))
     } finally {
@@ -152,7 +144,7 @@ export default function MyWorkPage() {
               className={styles.checkbox}
               checked={completing === todo.id}
               disabled={completing !== null}
-              onChange={() => handleTodoChecked(todo)}
+              onChange={() => void completeTodo(todo)}
               aria-label={`${t('todos.complete')}: ${todo.description}`}
             />
           )}
@@ -162,7 +154,7 @@ export default function MyWorkPage() {
       <Panel
         title={t('records.title')}
         description={records ? t('records.weekSummary', { count: records.total, hours: records.totalHours }) : undefined}
-        actions={<WeekNavigator start={week} onChange={setWeek} />}
+        actions={<WeekNavigator start={week} onChange={setWeek} weeks={WEEKS} />}
         flush
       >
         <EditableWorkTable
@@ -176,15 +168,6 @@ export default function MyWorkPage() {
         />
       </Panel>
 
-      {dialog?.kind === 'completeTodo' && (
-        <CompleteTodoModal
-          todo={dialog.todo}
-          submitting={completing !== null}
-          onClose={() => setDialog(null)}
-          onSubmit={(request) => void completeTodo(dialog.todo, request)}
-          onInvalid={addError}
-        />
-      )}
       {dialog?.kind === 'deleteRecord' && (
         <Modal
           isOpen

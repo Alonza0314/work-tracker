@@ -104,7 +104,7 @@ const { status, data } = await apiInstance.changeMyPassword(
 # **completeMyTodo**
 > WorkRecordResponse completeMyTodo(completeTodoRequest)
 
-Deletes the todo and adds it as a work record dated `date` (the client\'s today). Answers 400 and keeps the todo when the record would lack a category or hours.
+Deletes the todo and adds it as a work record with the todo\'s date; a todo without a date takes `date` (the client\'s today).
 
 ### Example
 
