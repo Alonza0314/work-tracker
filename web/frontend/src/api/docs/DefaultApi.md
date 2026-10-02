@@ -1187,7 +1187,7 @@ const { status, data } = await apiInstance.listHolidays(
 # **listMissingEntries**
 > MissingEntriesResponse listMissingEntries()
 
-For everyone but the system admin, the workdays of the 30 days ending at `to` (but not before the work start date) without any work record (todos do not count). Weekends and holidays are skipped, makeup workdays count, and days before an account was created are skipped. Only members with missing days are listed, most missing first. Allowed for admins, and for everyone when `allowViewAll` is on.
+For everyone but the system admin, the workdays of the 30 days ending at `to` (but not before the work start date) without any work record (todos do not count). Weekends and holidays are skipped and makeup workdays count. Only members with missing days are listed, most missing first. Allowed for admins, and for everyone when `allowViewAll` is on.
 
 ### Example
 

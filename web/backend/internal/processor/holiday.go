@@ -159,13 +159,9 @@ func (p *Processor) ListMissingEntries(acc *model.Account, req *model.RequestMis
 		}
 		resp.CheckedCount++
 
-		joined := ""
-		if !member.CreatedAt.IsZero() {
-			joined = member.CreatedAt.In(time.Local).Format(constant.WORK_DATE_LAYOUT)
-		}
 		missing := []string{}
 		for _, date := range workdays {
-			if date >= joined && !logged[member.Account+"|"+date] {
+			if !logged[member.Account+"|"+date] {
 				missing = append(missing, date)
 			}
 		}

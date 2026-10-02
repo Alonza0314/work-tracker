@@ -8,10 +8,11 @@ import (
 )
 
 // Missed entries: workdays without a work record in the 30 days up to "to".
-// Accounts created today skip every earlier day, so the checked days are the
-// workdays from today to "to" (two weeks ahead).
+// The work starts today, so the checked days are the workdays from today to
+// "to" (two weeks ahead).
 func TestMissingEntries(t *testing.T) {
 	admin := asAdmin(t)
+	expect(t, admin.put("/api/settings/work", map[string]any{"startDate": date(0)}), http.StatusOK, "start date")
 	alice := createUser(t, admin, "alice", "Alice", "default")
 	createUser(t, admin, "bob", "Bob", "admin")
 	category := createOption(t, admin, "categories", "Develop")
@@ -69,6 +70,19 @@ func TestMissingEntries(t *testing.T) {
 			t.Errorf("bob = %v", missingOf(r, "BOB"))
 		}
 		expect(t, admin.del("/api/holidays/"+workdays[3]), http.StatusOK, "remove the day off")
+	})
+
+	t.Run("accounts created after the start date are checked from it", func(t *testing.T) {
+		expect(t, admin.put("/api/settings/work", map[string]any{"startDate": date(-7)}), http.StatusOK, "earlier start date")
+		r := admin.get("/api/work/missing?to=" + date(-1))
+		expect(t, r, http.StatusOK, "missing entries")
+		if r.num("workdays") == 0 {
+			t.Fatalf("no workdays in the last week: %s", r.body)
+		}
+		if bob := missingOf(r, "BOB"); bob == nil || bob["missingCount"] != r.num("workdays") {
+			t.Errorf("bob = %v, want every one of %v workdays (created today)", bob, r.num("workdays"))
+		}
+		expect(t, admin.put("/api/settings/work", map[string]any{"startDate": date(0)}), http.StatusOK, "restore start date")
 	})
 
 	t.Run("checking starts no earlier than the work start date", func(t *testing.T) {

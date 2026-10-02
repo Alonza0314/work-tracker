@@ -146,7 +146,7 @@ Request flow: `main.go` → `cmd/wt.go` (cobra; loads YAML config via `util.Load
 - `ListMissingEntries` (`/api/work/missing?to=<client yesterday>`) checks the `WORK_MISSING_DAYS` (30) days ending at `to`, but starts no earlier than the admin-set work start date (`WorkSetting.StartDate`).
   - It covers every account except the system admin.
   - A workday (same `workdayOf` rule as the weekly target) counts as filled once it has at least one work record; todos don't count.
-  - Days before an account's `createdAt` are skipped.
+  - An account's `createdAt` does not matter: accounts created after the start date are still checked from it.
 - Permission is `checkViewAll`, as for everyone's records. The home page shows it (`MissingPanel`) to whoever `canViewAll`.
 
 ### Backup, restore and reset

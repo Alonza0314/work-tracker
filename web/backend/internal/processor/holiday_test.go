@@ -277,12 +277,6 @@ func TestMissingEntriesCountsWorkdaysWithoutRecords(t *testing.T) {
 	// 30 days: 2026-09-01 (Tue) .. 2026-09-30 (Wed) = 22 weekdays
 	mustSaveHoliday(t, f, "2026-09-25", "Mid-Autumn", constant.HOLIDAY_TYPE_HOLIDAY, constant.HOLIDAY_SOURCE_GOV)
 	mustSaveHoliday(t, f, "2026-09-19", "Makeup", constant.HOLIDAY_TYPE_WORKDAY, constant.HOLIDAY_SOURCE_GOV)
-	// an account from before creation times were stored: the whole range counts
-	f.alice.CreatedAt = time.Time{}
-	if err := f.p.UpdateAccount(f.alice); err != nil {
-		t.Fatal(err)
-	}
-
 	// alice logs every workday except 09-02 and the makeup Saturday; a todo
 	// and a weekend record do not count
 	for day := 1; day <= 30; day++ {
@@ -322,12 +316,9 @@ func TestMissingEntriesMembersAndOrder(t *testing.T) {
 	}
 	f.mustCreateRecord(t, bob, "2026-10-02", 1)
 
-	// everyone joined on 2026-09-28, so only that week counts
-	for _, acc := range []*model.Account{f.alice, bob, carol} {
-		acc.CreatedAt = time.Date(2026, 9, 28, 15, 0, 0, 0, time.Local)
-		if err := f.p.UpdateAccount(acc); err != nil {
-			t.Fatal(err)
-		}
+	// work starts on 2026-09-28, so only that week counts
+	if _, errDetail := f.p.SaveWorkSetting(&model.RequestUpdateWorkSetting{StartDate: strPtr("2026-09-28")}); errDetail != nil {
+		t.Fatal(errDetail)
 	}
 
 	resp := mustMissing(t, f, admin, "2026-10-02")
@@ -368,13 +359,31 @@ func TestCreateUserRecordsCreationTime(t *testing.T) {
 	}
 }
 
-func TestMissingEntriesStartAtTheWorkStartDate(t *testing.T) {
+// An account created after the work start date is still checked from the
+// start date: accounts are often created later than people start working.
+func TestMissingEntriesIgnoreAccountCreationTime(t *testing.T) {
 	f := newWorkFixture(t)
 	admin := mustGet(t, f.p, testAdminAccount)
-	f.alice.CreatedAt = time.Time{}
+	if _, errDetail := f.p.SaveWorkSetting(&model.RequestUpdateWorkSetting{StartDate: strPtr("2026-09-21")}); errDetail != nil {
+		t.Fatal(errDetail)
+	}
+	f.alice.CreatedAt = time.Date(2026, 10, 2, 9, 49, 0, 0, time.Local)
 	if err := f.p.UpdateAccount(f.alice); err != nil {
 		t.Fatal(err)
 	}
+	f.mustCreateRecord(t, f.alice, "2026-10-01", 8)
+
+	// 2026-09-21 (Mon) .. 10-01 (Thu): 9 weekdays, one logged
+	resp := mustMissing(t, f, admin, "2026-10-01")
+	alice := missingOf(resp, "ALICE")
+	if alice == nil || alice.MissingCount != 8 || alice.MissingDates[0] != "2026-09-21" {
+		t.Errorf("alice = %+v, want 8 missing days from 2026-09-21", alice)
+	}
+}
+
+func TestMissingEntriesStartAtTheWorkStartDate(t *testing.T) {
+	f := newWorkFixture(t)
+	admin := mustGet(t, f.p, testAdminAccount)
 
 	// a start date inside the 30 days moves the range start
 	if _, errDetail := f.p.SaveWorkSetting(&model.RequestUpdateWorkSetting{StartDate: strPtr("2026-09-28")}); errDetail != nil {

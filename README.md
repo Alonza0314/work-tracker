@@ -97,7 +97,7 @@ Users of the system. There is no self-registration: users are added by an admin 
 | `role` | string | `admin` or `default`. |
 | `i18n` | string | UI language of the user: `zh-TW` or `en`. |
 | `isSystem` | bool | `true` only for the system admin defined by `backend.username` / `backend.password` in the config. |
-| `createdAt` | string | RFC 3339 creation time. Days before it are not reported as missed entries. It is the zero time (`0001-01-01T00:00:00Z`) for accounts created before this field existed; those are checked over the whole range. |
+| `createdAt` | string | RFC 3339 creation time. It is the zero time (`0001-01-01T00:00:00Z`) for accounts created before this field existed. |
 
 Example value:
 
@@ -307,7 +307,7 @@ CI runs the cases in the "Integration test" step of the `Build Check` job in `.g
 | `TestFrontend` | `frontend_test.go` | `/` serves the app; client routes (`/login`, `/work/me`, `/users`) fall back to `index.html`; static files are served |
 | `TestHolidays` | `holidays_test.go` | syncing the (fake) government calendar stores weekday days off and weekend makeup days, and ignores weekend holidays; a failed sync → 502 and keeps the calendar; a synced day off makes the week need 32 hours; an admin entry wins over the government one, and deleting it brings the government entry back; validation (bad date, blank name, bad type, bad year → 400); default users can read but not change the calendar (→ 403) |
 | `TestLogin` | `login_test.go` | the config admin signs in and the JWT carries sub/name/role/i18n; account and password ignore case; wrong password or unknown account → 401; missing fields → 400; protected routes need a valid JWT or API token (→ 401); logout → 204 |
-| `TestMissingEntries` | `missing_test.go` | workdays without a work record are listed per member, most missing first; todos don't count; the system admin is not checked; days before an account was created are skipped; a day off is not a missed day; checking starts at the work start date; default users need `allowViewAll` (→ 403); bad date → 400 |
+| `TestMissingEntries` | `missing_test.go` | workdays without a work record are listed per member, most missing first; todos don't count; the system admin is not checked; accounts created after the work start date are still checked from it; a day off is not a missed day; checking starts at the work start date; default users need `allowViewAll` (→ 403); bad date → 400 |
 | `TestProfile` | `profile_test.go` | reading your profile; changing the UI language returns a token carrying it (unsupported language → 400); changing the password (wrong old password → 403; the new one ignores case); the system admin's password comes from the config (→ 403) |
 | `TestBackupRestore` | `system_test.go` | downloading a backup zip (manifest plus one JSON file per table); only admins back up or restore; restoring brings back users, records and API tokens, and new IDs continue after the restored ones; non-zip, another app's zip or a missing file field → 400 without changing data |
 | `TestReset` | `system_test.go` | a reset needs `{"confirm": "RESET"}` (→ 400) and an admin (→ 403); it leaves only the config admin and old tokens stop working |

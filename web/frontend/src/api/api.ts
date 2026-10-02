@@ -1229,7 +1229,7 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             };
         },
         /**
-         * For everyone but the system admin, the workdays of the 30 days ending at `to` (but not before the work start date) without any work record (todos do not count). Weekends and holidays are skipped, makeup workdays count, and days before an account was created are skipped. Only members with missing days are listed, most missing first. Allowed for admins, and for everyone when `allowViewAll` is on.
+         * For everyone but the system admin, the workdays of the 30 days ending at `to` (but not before the work start date) without any work record (todos do not count). Weekends and holidays are skipped and makeup workdays count. Only members with missing days are listed, most missing first. Allowed for admins, and for everyone when `allowViewAll` is on.
          * @summary List who missed logging work
          * @param {string} to Last day checked (the client\&#39;s yesterday), YYYY-MM-DD.
          * @param {*} [options] Override http request option.
@@ -2261,7 +2261,7 @@ export const DefaultApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
-         * For everyone but the system admin, the workdays of the 30 days ending at `to` (but not before the work start date) without any work record (todos do not count). Weekends and holidays are skipped, makeup workdays count, and days before an account was created are skipped. Only members with missing days are listed, most missing first. Allowed for admins, and for everyone when `allowViewAll` is on.
+         * For everyone but the system admin, the workdays of the 30 days ending at `to` (but not before the work start date) without any work record (todos do not count). Weekends and holidays are skipped and makeup workdays count. Only members with missing days are listed, most missing first. Allowed for admins, and for everyone when `allowViewAll` is on.
          * @summary List who missed logging work
          * @param {string} to Last day checked (the client\&#39;s yesterday), YYYY-MM-DD.
          * @param {*} [options] Override http request option.
@@ -2730,7 +2730,7 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
             return localVarFp.listHolidays(year, options).then((request) => request(axios, basePath));
         },
         /**
-         * For everyone but the system admin, the workdays of the 30 days ending at `to` (but not before the work start date) without any work record (todos do not count). Weekends and holidays are skipped, makeup workdays count, and days before an account was created are skipped. Only members with missing days are listed, most missing first. Allowed for admins, and for everyone when `allowViewAll` is on.
+         * For everyone but the system admin, the workdays of the 30 days ending at `to` (but not before the work start date) without any work record (todos do not count). Weekends and holidays are skipped and makeup workdays count. Only members with missing days are listed, most missing first. Allowed for admins, and for everyone when `allowViewAll` is on.
          * @summary List who missed logging work
          * @param {string} to Last day checked (the client\&#39;s yesterday), YYYY-MM-DD.
          * @param {*} [options] Override http request option.
@@ -3161,7 +3161,7 @@ export class DefaultApi extends BaseAPI {
     }
 
     /**
-     * For everyone but the system admin, the workdays of the 30 days ending at `to` (but not before the work start date) without any work record (todos do not count). Weekends and holidays are skipped, makeup workdays count, and days before an account was created are skipped. Only members with missing days are listed, most missing first. Allowed for admins, and for everyone when `allowViewAll` is on.
+     * For everyone but the system admin, the workdays of the 30 days ending at `to` (but not before the work start date) without any work record (todos do not count). Weekends and holidays are skipped and makeup workdays count. Only members with missing days are listed, most missing first. Allowed for admins, and for everyone when `allowViewAll` is on.
      * @summary List who missed logging work
      * @param {string} to Last day checked (the client\&#39;s yesterday), YYYY-MM-DD.
      * @param {*} [options] Override http request option.
